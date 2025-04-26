@@ -12,6 +12,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 # Import your forms from the forms.py
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from flask_migrate import Migrate
+
+import smtplib
+from email.mime.text import MIMEText
+import os
+from dotenv import load_dotenv
+
+
+
+# Load environment variables from the .env file
+load_dotenv()
+print("DB URI from .env:", os.getenv("DB_URI"))
+
 
 '''
 Make sure the required packages are installed: 
@@ -26,14 +40,43 @@ pip3 install -r requirements.txt
 This will install the packages from the requirements.txt for this project.
 '''
 
+secret_key = os.getenv('FLASK_KEY')
+#print(f'Secret Key Loaded: {secret_key}')
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
+
+app.config['SECRET_KEY'] = secret_key
+
+
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
 # Configure Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
+
+# Create an email confirmation token
+def generate_confirmation_token(email):
+    serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+    return serializer.dumps(email, salt='email-confirm')
+
+# Send the confirmation email:
+def send_confirmation_email(user_email, token):
+    confirm_url = url_for('confirm_email', token=token, _external=True)
+    html = f'Click to confirm your email: <a href="{confirm_url}">{confirm_url}</a>'
+
+    msg = MIMEText(html, 'html')
+    msg['Subject'] = 'Please confirm your email'
+    msg['From'] = "bam58415@gmail.com"
+    msg['To'] = user_email
+
+    with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+        connection.starttls()
+        connection.login("bam58415@gmail.com", "pqgufynjqomvmqpb")
+        connection.send_message(msg)
+
+
+
 
 
 @login_manager.user_loader
@@ -54,9 +97,29 @@ gravatar = Gravatar(app,
 # CREATE DATABASE
 class Base(DeclarativeBase):
     pass
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
+
+#app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///post.db")
+#app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///post.db"
+
+
+
 db = SQLAlchemy(model_class=Base)
+#print("SQLAlchemy URI:", app.config['SQLALCHEMY_DATABASE_URI'])
+
+migrate = Migrate(app, db)
+
+#app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///instance/post.db"
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///instance/posts.db")
+
+
 db.init_app(app)
+
+
+'''with app.app_context():
+    db.create_all()
+    print("Database tables created!")
+'''
+
 
 
 # CONFIGURE TABLES
@@ -83,11 +146,15 @@ class User(UserMixin, db.Model):
     email: Mapped[str] = mapped_column(String(100), unique=True)
     password: Mapped[str] = mapped_column(String(100))
     name: Mapped[str] = mapped_column(String(100))
+    # for email confirmation
+    confirmed = db.Column(db.Boolean, default=False)
+
     # This will act like a list of BlogPost objects attached to each User.
     # The "author" refers to the author property in the BlogPost class.
     posts = relationship("BlogPost", back_populates="author")
     # Parent relationship: "comment_author" refers to the comment_author property in the Comment class.
     comments = relationship("Comment", back_populates="comment_author")
+
 
 
 # Create a table for the comments on the blog posts
@@ -104,8 +171,12 @@ class Comment(db.Model):
     parent_post = relationship("BlogPost", back_populates="comments")
 
 
+'''with app.app_context():
+    db.create_all()'''
+
 with app.app_context():
     db.create_all()
+    print("Database tables created!")
 
 
 # Create an admin-only decorator
@@ -144,13 +215,44 @@ def register():
             email=form.email.data,
             name=form.name.data,
             password=hash_and_salted_password,
+            confirmed=False  # Make sure your User model includes this field
         )
         db.session.add(new_user)
         db.session.commit()
+        
+         # Generate confirmation token
+        token = generate_confirmation_token(new_user.email)
+
+        # Send confirmation email
+        send_confirmation_email(new_user.email, token)
+
+        flash("A confirmation email has been sent. Please check your inbox.")
+        return redirect(url_for("login"))
+
         # This line will authenticate the user with Flask-Login
-        login_user(new_user)
-        return redirect(url_for("get_all_posts"))
+        '''login_user(new_user)
+        return redirect(url_for("get_all_posts"))'''
+
     return render_template("register.html", form=form, current_user=current_user)
+
+# 6. Add confirmation route for email confirmation:
+@app.route('/confirm/<token>')
+def confirm_email(token):
+    try:
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        email = serializer.loads(token, salt='email-confirm', max_age=3600)
+    except (SignatureExpired, BadSignature):
+        flash('The confirmation link is invalid or has expired.', 'danger')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+    if user.confirmed:
+        flash('Account already confirmed. Please login.', 'info')
+    else:
+        user.confirmed = True
+        db.session.commit()
+        flash('Your account has been confirmed!', 'success')
+    return redirect(url_for('login'))
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -274,4 +376,5 @@ def contact():
 
 
 if __name__ == "__main__":
+
     app.run(debug=True, port=5001)

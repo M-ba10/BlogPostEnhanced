@@ -11,7 +11,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 # Import your forms from the forms.py
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_migrate import Migrate
 
@@ -42,11 +42,14 @@ This will install the packages from the requirements.txt for this project.
 
 secret_key = os.getenv('FLASK_KEY')
 #print(f'Secret Key Loaded: {secret_key}')
+#db_uri = os.getenv('DB_URI')
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = secret_key
 
+app.config['EMAIL_USER'] = os.getenv('EMAIL_USER')
+app.config['EMAIL_PASS'] = os.getenv('EMAIL_PASS')
 
 ckeditor = CKEditor(app)
 Bootstrap5(app)
@@ -67,16 +70,13 @@ def send_confirmation_email(user_email, token):
 
     msg = MIMEText(html, 'html')
     msg['Subject'] = 'Please confirm your email'
-    msg['From'] = "bam58415@gmail.com"
+    msg['From'] = app.config['EMAIL_USER']
     msg['To'] = user_email
 
     with smtplib.SMTP("smtp.gmail.com", 587) as connection:
         connection.starttls()
-        connection.login("bam58415@gmail.com", "pqgufynjqomvmqpb")
+        connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
         connection.send_message(msg)
-
-
-
 
 
 @login_manager.user_loader
@@ -98,10 +98,6 @@ gravatar = Gravatar(app,
 class Base(DeclarativeBase):
     pass
 
-#app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///post.db")
-#app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///post.db"
-
-
 
 db = SQLAlchemy(model_class=Base)
 #print("SQLAlchemy URI:", app.config['SQLALCHEMY_DATABASE_URI'])
@@ -109,17 +105,17 @@ db = SQLAlchemy(model_class=Base)
 migrate = Migrate(app, db)
 
 #app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///instance/post.db"
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///instance/posts.db")
+'''app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///instance/posts.db")
+print("SQLAlchemy URI:", app.config['SQLALCHEMY_DATABASE_URI'])'''
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(basedir, 'instance', 'posts.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
+print("Resolved DB Path:", db_path)
+
 
 
 db.init_app(app)
-
-
-'''with app.app_context():
-    db.create_all()
-    print("Database tables created!")
-'''
-
 
 
 # CONFIGURE TABLES
@@ -271,11 +267,65 @@ def login():
         elif not check_password_hash(user.password, password):
             flash('Password incorrect, please try again.')
             return redirect(url_for('login'))
+        
+        elif not user.confirmed:
+            flash("Please confirm your email before logging in.")
+            return redirect(url_for('login'))
+
         else:
             login_user(user)
             return redirect(url_for('get_all_posts'))
 
     return render_template("login.html", form=form, current_user=current_user)
+
+
+ # 2. Route: Show Reset Request Page & Send Email
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            token = generate_confirmation_token(user.email)
+            reset_url = url_for('reset_password', token=token, _external=True)
+
+            # Email setup
+            html = f"Click the link to reset your password: <a href='{reset_url}'>{reset_url}</a>"
+            msg = MIMEText(html, "html")
+            msg["Subject"] = "Reset Your Password"
+            msg["From"] = app.config['EMAIL_USER']
+            msg["To"] = user.email
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                connection.starttls()
+                connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+                connection.send_message(msg)
+
+        flash("If that email is in our system, a reset link has been sent.")
+        return redirect(url_for("login"))
+
+    return render_template("forgot_password.html", form=form, current_user=current_user)
+
+#Route: Handle Token and Show Reset Form    
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        email = serializer.loads(token, salt='email-confirm', max_age=3600)
+    except (SignatureExpired, BadSignature):
+        flash("Invalid or expired reset link.")
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.password = generate_password_hash(form.password.data, method='pbkdf2:sha256', salt_length=8)
+        db.session.commit()
+        flash("Your password has been reset. Please log in.")
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", form=form, current_user=current_user, token=token)
+
 
 
 @app.route('/logout')
@@ -335,6 +385,7 @@ def add_new_post():
 
 # Use a decorator so only an admin user can edit a post
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
+@admin_only
 def edit_post(post_id):
     post = db.get_or_404(BlogPost, post_id)
     edit_form = CreatePostForm(

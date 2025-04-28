@@ -20,6 +20,22 @@
 <div class="container px-4 px-lg-5">
   <div class="row gx-4 gx-lg-5 justify-content-center">
     <div class="col-md-10 col-lg-8 col-xl-7">
+
+      <!-- Author Search Form -->
+     <!-- <form class="mb-4" action="{{ url_for('search_by_author') }}" method="GET">
+        <div class="input-group">
+          <input
+            type="text"
+            class="form-control"
+            name="query"
+            placeholder="Search by author name..."
+            required
+          />
+          <button class="btn btn-primary" type="submit">Search</button>
+        </div>
+      </form>
+      -->
+
       <!-- Post preview-->
       {% for post in all_posts %}
       <div class="post-preview">

@@ -1,5 +1,5 @@
 from datetime import date
-from flask import Flask, abort, render_template, redirect, url_for, flash
+from flask import Flask, abort, request, render_template, redirect, url_for, flash
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
@@ -186,6 +186,31 @@ def admin_only(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+#🧾 Add a Search Route in Flask
+@app.route("/search", methods=["GET"])
+def search_by_author():
+    query = request.args.get("query", "").strip()
+
+    if not query:
+        return render_template("search_results.html", posts=[], query=query, message="Please enter a name to search.")
+
+    users = User.query.filter(User.name.ilike(f"%{query}%")).all()
+
+    if not users:
+        return render_template("search_results.html", posts=[], query=query, message="No authors found matching that name.")
+
+    posts = []
+    for user in users:
+        posts.extend(user.posts)
+
+    if not posts:
+        return render_template("search_results.html", posts=[], query=query, message="Author(s) found, but they haven't written any posts yet.")
+
+    return render_template("search_results.html", posts=posts, query=query)
+
+
 
 
 # Register new users into the User database

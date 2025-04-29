@@ -44,7 +44,7 @@
     <!-- Navigation-->
     <nav class="navbar navbar-expand-lg navbar-light" id="mainNav">
       <div class="container px-4 px-lg-5">
-        <a class="navbar-brand" href="/">Get Started</a>
+        <a class="navbar-brand" href="/">{{ _("Get Started") }}</a>
         <button
           class="navbar-toggler"
           type="button"
@@ -54,7 +54,7 @@
           aria-expanded="false"
           aria-label="Toggle navigation"
         >
-          Menu
+        {{ _("Menu") }}
           <i class="fas fa-bars"></i>
         </button>
         <div class="collapse navbar-collapse" id="navbarResponsive">
@@ -63,7 +63,7 @@
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('get_all_posts') }}"
-                >Home</a
+                >{{ _("Home") }}</a
               >
             </li>
             <!-- Only show Login/Register if user is logged out. Otherwise show "Log Out" -->
@@ -72,14 +72,14 @@
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('login') }}"
-                >Login</a
+                >{{ _("Login") }}</a
               >
             </li>
             <li class="nav-item">
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('register') }}"
-                >Register</a
+                >{{ _("Register") }}</a
               >
             </li>
             {% else: %}
@@ -87,7 +87,7 @@
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('logout') }}"
-                >Log Out</a
+                >{{ _("Log Out") }}</a
               >
             </li>
             {% endif %}
@@ -95,14 +95,14 @@
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('about') }}"
-                >About</a
+                >{{ _("About") }}</a
               >
             </li>
             <li class="nav-item">
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
                 href="{{ url_for('contact') }}"
-                >Contact</a
+                >{{ _("Contact") }}</a
               >
             </li>
           </ul>
@@ -112,7 +112,7 @@
               class="form-control form-control-sm me-2"
               type="search"
               name="query"
-              placeholder="Search author..."
+              placeholder={{ _("Search author...") }}
               aria-label="Search"
               required
               style="max-width: 180px; font-size: 0.9rem;"
@@ -129,11 +129,29 @@
                 border: none;
               "
             >
-              Search
+            {{ _("Search ") }}
             </button>
           </form>
           <!-- End Search Form -->
-          </div>
+          <!-- Language Selection -->
+          <!-- In your navbar, replace the current language switcher with: -->
+          <div class="dropdown ms-3">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+              {{ config['LANGUAGES'].get(session.get('language', 'en'), 'English') }}
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="languageDropdown">
+              {% for code, name in config['LANGUAGES'].items() %}
+                <li>
+                  <a class="dropdown-item {% if session.get('language', 'en') == code %}active{% endif %}" 
+                    href="{{ url_for('change_language', language=code) }}">
+                    {{ name }}
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>   
+          <!-- End Language Selection -->
+        </div>
       </div>
     </nav>
   </body>

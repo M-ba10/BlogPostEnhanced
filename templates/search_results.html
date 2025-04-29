@@ -6,7 +6,7 @@
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
         <div class="site-heading">
-          <h1>Search Results</h1>
+          <h1>{{ _("Search Results") }}</h1>
           <span class="subheading">for "{{ query }}"</span>
         </div>
       </div>
@@ -27,7 +27,7 @@
             <h2 class="post-title">{{ post.title }}</h2>
             <h3 class="post-subtitle">{{ post.subtitle }}</h3>
           </a>
-          <p class="post-meta">Posted by {{ post.author.name }} on {{ post.date }}</p>
+          <p class="post-meta">{{ _("Posted by") }} {{ post.author.name }} {{ _("on") }} {{ post.date }}</p>
         </div>
         <hr class="my-4" />
       {% endfor %}

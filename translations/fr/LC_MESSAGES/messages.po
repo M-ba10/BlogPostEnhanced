@@ -1,0 +1,68 @@
+# French translations for PROJECT.
+# Copyright (C) 2025 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2025.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2025-04-29 15:56+0200\n"
+"PO-Revision-Date: 2025-04-29 15:57+0200\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: fr\n"
+"Language-Team: fr <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.17.0\n"
+
+#: main.py:271
+msgid "You've already signed up with that email, log in instead!"
+msgstr "Vous êtes déjà inscrit avec cet email, connectez-vous à la place !"
+
+#: main.py:294
+msgid "A confirmation email has been sent. Please check your inbox."
+msgstr "Un email de confirmation a été envoyé. Veuillez vérifier votre boîte de réception"
+
+#: main.py:310
+msgid "The confirmation link is invalid or has expired."
+msgstr "Un email de confirmation a été envoyé. Veuillez vérifier votre boîte de réception."
+
+#: main.py:315
+msgid "Account already confirmed. Please login."
+msgstr "Compte déjà confirmé. Veuillez vous connecter."
+
+#: main.py:319
+msgid "Your account has been confirmed!"
+msgstr "Votre compte a été confirmé !"
+
+#: main.py:333
+msgid "That email does not exist, please try again."
+msgstr "Cet email n'existe pas, veuillez réessayer."
+
+#: main.py:337
+msgid "Password incorrect, please try again."
+msgstr "Mot de passe incorrect, veuillez réessayer."
+
+#: main.py:341
+msgid "Please confirm your email before logging in."
+msgstr "Veuillez confirmer votre email avant de vous connecter."
+
+#: main.py:373
+msgid "If that email is in our system, a reset link has been sent."
+msgstr "Si cet email est dans notre système, un lien de réinitialisation a été envoyé."
+
+#: main.py:385
+msgid "Invalid or expired reset link."
+msgstr "Lien de réinitialisation invalide ou expiré."
+
+#: main.py:393
+msgid "Your password has been reset. Please log in."
+msgstr "Votre mot de passe a été réinitialisé. Veuillez vous connecter"
+
+#: main.py:422
+msgid "You need to login or register to comment."
+msgstr "Vous devez vous connecter ou vous inscrire pour commenter."
+

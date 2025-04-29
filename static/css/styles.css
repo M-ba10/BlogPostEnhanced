@@ -10853,3 +10853,19 @@ header.masthead .post-heading .meta a {
     color: #ee6f57;
     text-align: center;
 }
+/* language selector Styling */
+
+.dropdown-language {
+  margin-left: 15px;
+}
+
+.language-flag {
+  width: 20px;
+  margin-right: 5px;
+}
+
+/* RTL support for Arabic */
+[lang="ar"] {
+  direction: rtl;
+  text-align: right;
+}

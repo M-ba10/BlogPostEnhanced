@@ -1,5 +1,5 @@
 from datetime import date
-from flask import Flask, abort, request, render_template, redirect, url_for, flash
+from flask import Flask, abort, request, render_template, redirect, session, url_for, flash
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
@@ -14,7 +14,7 @@ from sqlalchemy.orm import relationship
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_migrate import Migrate
-
+from flask_babel import Babel, _
 import smtplib
 from email.mime.text import MIMEText
 import os
@@ -48,6 +48,25 @@ app = Flask(__name__)
 
 app.config['SECRET_KEY'] = secret_key
 
+# Configure Flask-Babel for language support
+#app.config['LANGUAGES'] = ['en', 'fr', 'ar']  # Supported languages
+
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'  # Directory for translations
+
+app.config['LANGUAGES'] = {
+    'en': 'English',
+    'fr': 'Français',
+    'ar': 'العربية'
+}
+
+#app.config['BABEL_DEFAULT_LOCALE'] = 'en'  # Default language
+
+babel = Babel(app)
+
+
+
+#some_string = _("Welcome to our website")
+
 app.config['EMAIL_USER'] = os.getenv('EMAIL_USER')
 app.config['EMAIL_PASS'] = os.getenv('EMAIL_PASS')
 
@@ -78,6 +97,41 @@ def send_confirmation_email(user_email, token):
         connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
         connection.send_message(msg)
 
+# Languages configuration'''
+# Function to get the user's preferred language
+def get_locale():
+    # 1. Check URL parameter
+    if 'lang' in request.args:
+        if request.args['lang'] in app.config['LANGUAGES']:
+            session['lang'] = request.args['lang']
+            return request.args['lang']
+    
+    # 2. Check session
+    if 'lang' in session:
+        return session['lang']
+    
+    # 3. Fallback to browser preference
+    return request.accept_languages.best_match(app.config['LANGUAGES'].keys())
+
+# Initialize with locale selector
+babel.init_app(app, locale_selector=get_locale)
+
+
+@app.route('/change_language/<language>')
+def change_language(language):
+    if language in app.config['LANGUAGES']:
+        session['lang'] = language
+        # Force refresh the language for current request
+        get_locale()
+    return redirect(request.referrer or url_for('get_all_posts'))
+
+# Route to change language
+'''@app.route('/change_language/<language>')
+def change_language(language):
+    if language in app.config['LANGUAGES']:
+        session['language'] = language
+    return redirect(request.referrer or url_for('get_all_posts'))
+'''
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -224,7 +278,7 @@ def register():
         user = result.scalar()
         if user:
             # User already exists
-            flash("You've already signed up with that email, log in instead!")
+            flash(_("You've already signed up with that email, log in instead!"))
             return redirect(url_for('login'))
 
         hash_and_salted_password = generate_password_hash(
@@ -247,7 +301,7 @@ def register():
         # Send confirmation email
         send_confirmation_email(new_user.email, token)
 
-        flash("A confirmation email has been sent. Please check your inbox.")
+        flash(_("A confirmation email has been sent. Please check your inbox."))
         return redirect(url_for("login"))
 
         # This line will authenticate the user with Flask-Login
@@ -263,16 +317,16 @@ def confirm_email(token):
         serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
         email = serializer.loads(token, salt='email-confirm', max_age=3600)
     except (SignatureExpired, BadSignature):
-        flash('The confirmation link is invalid or has expired.', 'danger')
+        flash(_('The confirmation link is invalid or has expired.', 'danger'))
         return redirect(url_for('login'))
 
     user = User.query.filter_by(email=email).first_or_404()
     if user.confirmed:
-        flash('Account already confirmed. Please login.', 'info')
+        flash(_('Account already confirmed. Please login.', 'info'))
     else:
         user.confirmed = True
         db.session.commit()
-        flash('Your account has been confirmed!', 'success')
+        flash(_('Your account has been confirmed!', 'success'))
     return redirect(url_for('login'))
 
 
@@ -286,15 +340,15 @@ def login():
         user = result.scalar()
         # Email doesn't exist
         if not user:
-            flash("That email does not exist, please try again.")
+            flash(_("That email does not exist, please try again."))
             return redirect(url_for('login'))
         # Password incorrect
         elif not check_password_hash(user.password, password):
-            flash('Password incorrect, please try again.')
+            flash(_('Password incorrect, please try again.'))
             return redirect(url_for('login'))
         
         elif not user.confirmed:
-            flash("Please confirm your email before logging in.")
+            flash(_("Please confirm your email before logging in."))
             return redirect(url_for('login'))
 
         else:
@@ -326,7 +380,7 @@ def forgot_password():
                 connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
                 connection.send_message(msg)
 
-        flash("If that email is in our system, a reset link has been sent.")
+        flash(_("If that email is in our system, a reset link has been sent."))
         return redirect(url_for("login"))
 
     return render_template("forgot_password.html", form=form, current_user=current_user)
@@ -338,7 +392,7 @@ def reset_password(token):
         serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
         email = serializer.loads(token, salt='email-confirm', max_age=3600)
     except (SignatureExpired, BadSignature):
-        flash("Invalid or expired reset link.")
+        flash(_("Invalid or expired reset link."))
         return redirect(url_for('login'))
 
     user = User.query.filter_by(email=email).first_or_404()
@@ -346,7 +400,7 @@ def reset_password(token):
     if form.validate_on_submit():
         user.password = generate_password_hash(form.password.data, method='pbkdf2:sha256', salt_length=8)
         db.session.commit()
-        flash("Your password has been reset. Please log in.")
+        flash(_("Your password has been reset. Please log in."))
         return redirect(url_for("login"))
 
     return render_template("reset_password.html", form=form, current_user=current_user, token=token)
@@ -375,7 +429,7 @@ def show_post(post_id):
     # Only allow logged-in users to comment on posts
     if comment_form.validate_on_submit():
         if not current_user.is_authenticated:
-            flash("You need to login or register to comment.")
+            flash(_("You need to login or register to comment."))
             return redirect(url_for("login"))
 
         new_comment = Comment(

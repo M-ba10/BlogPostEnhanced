@@ -10,11 +10,11 @@
       <div class="col-md-10 col-lg-8 col-xl-7">
         <div class="page-heading">
           {% if msg_sent: %}
-          <h1>Successfully sent your message</h1>
+          <h1>{{ _("Successfully sent your message") }}</h1>
           {% else: %}
-          <h1>Contact Me</h1>
+          <h1>{{ _("Contact Me") }}</h1>
           {% endif %}
-          <span class="subheading">Have questions? I have answers.</span>
+          <span class="subheading">{{ _("Have questions? I have answers") }}.</span>
         </div>
       </div>
     </div>
@@ -25,9 +25,10 @@
   <div class="container px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
-        <p>
+        <p>{{ _("
           Want to get in touch? Fill out the form below to send me a message and
           I will get back to you as soon as possible!
+          ") }}
         </p>
         <div class="my-5">
           <!-- * * * * * * * * * * * * * * *-->
@@ -44,10 +45,10 @@
                 id="name"
                 name="name"
                 type="text"
-                placeholder="Enter your name..."
+                placeholder={{ _("Enter your name...") }}
                 required
               />
-              <label for="name">Name</label>
+              <label for="name">{{ _("Name") }}</label>
             </div>
             <div class="form-floating">
               <input
@@ -55,10 +56,10 @@
                 id="email"
                 name="email"
                 type="email"
-                placeholder="Enter your email..."
+                placeholder={{ _("Enter your email...") }}
                 required
               />
-              <label for="email">Email address</label>
+              <label for="email">{{ _("Email address") }}</label>
             </div>
             <div class="form-floating">
               <input
@@ -66,21 +67,21 @@
                 id="phone"
                 name="phone"
                 type="tel"
-                placeholder="Enter your phone number..."
+                placeholder={{ _("Enter your phone number...") }}
                 required
               />
-              <label for="phone">Phone Number</label>
+              <label for="phone">{{ _("Phone Number") }}</label>
             </div>
             <div class="form-floating">
               <textarea
                 class="form-control"
                 id="message"
                 name="message"
-                placeholder="Enter your message here..."
+                placeholder={{ _("Enter your message here...") }}
                 required
                 style="height: 12rem"
               ></textarea>
-              <label for="message">Message</label>
+              <label for="message">{{ _("Message") }}</label>
             </div>
             <br />
             <button
@@ -88,7 +89,7 @@
               id="submitButton"
               type="submit"
             >
-              NOT USED in Day 69
+            {{ _("NOT USED in Day 69") }}
             </button>
           </form>
         </div>

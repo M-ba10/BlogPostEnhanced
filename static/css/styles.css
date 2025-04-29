@@ -10869,3 +10869,63 @@ header.masthead .post-heading .meta a {
   direction: rtl;
   text-align: right;
 }
+
+/*
+.notification-badge {
+  position: relative;
+  display: inline-block;
+}
+
+.has-notifications .fa-bell {
+  animation: ring 2s ease infinite;
+}
+
+@keyframes ring {
+  0% { transform: rotate(0deg); }
+  5% { transform: rotate(15deg); }
+  10% { transform: rotate(-15deg); }
+  15% { transform: rotate(15deg); }
+  20% { transform: rotate(-15deg); }
+  25% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.badge {
+  font-size: 0.6rem;
+  vertical-align: top;
+}
+*/
+
+/* Ensure consistent nav item spacing */
+.navbar-nav {
+  align-items: center;
+}
+
+/* Notification badge styling */
+.notification-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.notification-badge .fa-bell {
+  font-size: 1.1em;
+}
+
+/* Badge for unread notifications */
+.badge {
+  font-size: 0.6rem;
+  position: relative;
+  top: -1px;
+}
+
+/* Mobile view adjustments */
+@media (max-width: 767.98px) {
+  .navbar-nav .nav-item {
+    margin: 3px 0;
+  }
+  
+  .notification-badge .fa-bell {
+    margin-right: 8px;
+  }
+}

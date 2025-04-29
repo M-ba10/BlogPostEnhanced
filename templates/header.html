@@ -90,7 +90,16 @@
                 >{{ _("Log Out") }}</a
               >
             </li>
+            <!-- Notification item - only shown when logged in -->
+            {% if current_user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}">
+                <i class="fas fa-bell"></i> {{ _("Notifications") }}
+              </a>
+            </li>
             {% endif %}
+            {% endif %}
+
             <li class="nav-item">
               <a
                 class="nav-link px-lg-3 py-3 py-lg-4"
@@ -105,7 +114,32 @@
                 >{{ _("Contact") }}</a
               >
             </li>
+            <!-- for notifications
+            <li class="nav-item {% if unread_notifications %}has-notifications{% endif %}">
+              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}" title="{{ _('Notification Settings') }}">
+                <span class="notification-badge">
+                  <i class="fas fa-bell"></i>
+                </span>
+                <span class="d-none d-md-inline">{{ _("Notifications") }}</span>
+                {% if unread_notifications %}
+                  <span class="badge bg-danger ms-1">{{ unread_notifications }}</span>
+                {% endif %}
+              </a>
+            </li>
+            -->
+            <!-- for showing unread notifications-->
+             <!--
+            <li class="nav-item {% if unread_notifications %}has-notifications{% endif %}">
+              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}">
+                <span class="notification-badge">
+                  <i class="fas fa-bell"></i>
+                </span>
+                {{ _("Notifications") }}
+              </a>
+            </li>
+            -->
           </ul>
+          
           <!-- 🔍 Search Form -->
           <form class="d-flex align-items-center" method="GET" action="{{ url_for('search_by_author') }}">
             <input
@@ -151,6 +185,7 @@
             </ul>
           </div>   
           <!-- End Language Selection -->
+          
         </div>
       </div>
     </nav>

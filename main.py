@@ -3,7 +3,7 @@ from flask import Flask, abort, request, render_template, redirect, session, url
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
-from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
+from flask_login import UserMixin, login_required, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
@@ -198,7 +198,12 @@ class User(UserMixin, db.Model):
     name: Mapped[str] = mapped_column(String(100))
     # for email confirmation
     confirmed = db.Column(db.Boolean, default=False)
-
+    # For notifications
+    receive_notifications = db.Column(db.Boolean, default=True) 
+    # For profile images to Do
+    #profile_image = db.Column(db.String(250), default="https://www.gravatar.com/avatar/")
+    
+    
     # This will act like a list of BlogPost objects attached to each User.
     # The "author" refers to the author property in the BlogPost class.
     posts = relationship("BlogPost", back_populates="author")
@@ -221,9 +226,7 @@ class Comment(db.Model):
     parent_post = relationship("BlogPost", back_populates="comments")
 
 
-'''with app.app_context():
-    db.create_all()'''
-
+# Create the database tables
 with app.app_context():
     db.create_all()
     print("Database tables created!")
@@ -241,15 +244,56 @@ def admin_only(f):
 
     return decorated_function
 
+# 5. Add a notification service
+def send_new_post_notification(post):
+    """Send email notification to all users about new post"""
+    try:
+        app.logger.info(f"Starting notification for post: {post.title}")
+        
+        # Get all users who want notifications
+        subscribers = User.query.filter_by(receive_notifications=True).all()
+        if not subscribers:
+            app.logger.info("No subscribers found")
+            return
+
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+            
+            for user in subscribers:
+                try:
+                    msg = MIMEText(
+                        f"Hello {user.name},\n\n"
+                        f"New post by {post.author.name}: {post.title}\n"
+                        f"Read it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                        "To unsubscribe: {url_for('notification_preferences', _external=True)}",
+                        'plain'
+                    )
+                    msg['Subject'] = f"New Post: {post.title}"
+                    msg['From'] = app.config['EMAIL_USER']
+                    msg['To'] = user.email
+                    
+                    server.send_message(msg)
+                    app.logger.info(f"Notification sent to {user.email}")
+                    
+                except Exception as e:
+                    app.logger.error(f"Failed to send to {user.email}: {str(e)}")
+                    
+    except Exception as e:
+        app.logger.error(f"Notification system error: {str(e)}")
+        raise  # Re-raise if you want to see it in console
 
 #🧾 Add a Search Route in Flask
 @app.route("/search", methods=["GET"])
 def search_by_author():
+    # Get the search query from the request
+    # Use request.args.get to get the query parameter from the URL
+    # Use strip() to remove any leading or trailing whitespace
     query = request.args.get("query", "").strip()
-
+    # If the query is empty, return an error message
     if not query:
         return render_template("search_results.html", posts=[], query=query, message="Please enter a name to search.")
-
+    # Use ilike for case-insensitive search
     users = User.query.filter(User.name.ilike(f"%{query}%")).all()
 
     if not users:
@@ -458,8 +502,36 @@ def add_new_post():
         )
         db.session.add(new_post)
         db.session.commit()
+        
+        print(f"✅ New post created by {current_user.name}")  # Debug 1
+
+         # Get users who want notifications
+        subscribers = User.query.filter_by(receive_notifications=True).all()
+        print(f"📢 Found {len(subscribers)} subscribers to notify")  # Debug 2
+
+        # Send notification to all users
+        from threading import Thread
+        Thread(target=send_new_post_notification, args=(new_post,)).start()
+        print("📧 Notifications thread launch!")
+
+        flash(_("New post created successfully and notifications sent!"))
+        # Redirect to the main page
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user)
+
+# Add notification preference to the user profile
+@app.route("/notification_preferences", methods=["GET", "POST"])
+@login_required
+def notification_preferences():
+    if request.method == "POST":
+        # Convert checkbox value to boolean
+        current_user.receive_notifications = request.form.get('notify') == 'on'
+        db.session.commit()
+        
+        flash(_("Notification preferences updated!"))
+        return redirect(url_for("notification_preferences"))
+    
+    return render_template("notification_preferences.html")
 
 
 # Use a decorator so only an admin user can edit a post

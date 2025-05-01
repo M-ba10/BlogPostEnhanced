@@ -1,0 +1,180 @@
+{% extends "header.html" %}
+{% block content %}
+<div class="account-page" style="background-color: #f8f9fa; min-height: 100vh;">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-lg border-0">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h3 class="mb-0">{{ _("Account Settings") }}</h3>
+                    </div>
+                    <div class="card-body p-4" style="background-color: #ffffff;">
+                        <!-- Profile Section -->
+                        <div class="profile-section text-center mb-4">
+                            <div class="d-flex justify-content-center align-items-center">
+                                <img class="rounded-circle shadow-sm"
+                                     src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 125) }}"
+                                     style="width: 125px; height: 125px; object-fit: cover; border: 3px solid #3498db;">
+                                <div class="ml-4 text-left">
+                                    <h2 class="mb-1" style="color: #2c3e50;">{{ current_user.name }}</h2>
+                                    <p class="text-muted mb-0">{{ current_user.email }}</p>
+                                    <small class="text-primary">{{ _("Member since") }} {{ current_user.created_at.strftime('%B %Y') if current_user.created_at else '' }}</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form method="POST" enctype="multipart/form-data" novalidate>
+                            {{ form.hidden_tag() }}
+
+                            <!-- Account Info Section -->
+                            <div class="form-section mb-4">
+                                <h5 class="section-title mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">
+                                    <i class="fas fa-user-circle mr-2"></i>{{ _("Profile Information") }}
+                                </h5>
+
+                                <div class="form-group">
+                                    {{ form.name.label(class="form-control-label font-weight-bold") }}
+                                    {% if form.name.errors %}
+                                        {{ form.name(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.name.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.name(class="form-control", style="border-radius: 8px;") }}
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="font-weight-bold">{{ _("Profile Picture") }}</label>
+                                    <div class="custom-file">
+                                        {{ form.picture(class="custom-file-input", id="customFile") }}
+                                        <label class="custom-file-label" for="customFile">{{ _("Choose file") }}</label>
+                                        {% if form.picture.errors %}
+                                            {% for error in form.picture.errors %}
+                                                <span class="text-danger d-block">{{ error }}</span>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                    <small class="form-text text-muted">{{ _("JPG, JPEG or PNG only. Max 2MB") }}</small>
+                                </div>
+                            </div>
+
+                            <!-- Password Change Section -->
+                            <div class="form-section">
+                                <h5 class="section-title mb-3" style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 8px;">
+                                    <i class="fas fa-lock mr-2"></i>{{ _("Password Settings") }}
+                                </h5>
+
+                                <div class="form-group">
+                                    {{ form.current_password.label(class="form-control-label font-weight-bold") }}
+                                    {% if form.current_password.errors %}
+                                        {{ form.current_password(class="form-control is-invalid", placeholder=_("Current password")) }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.current_password.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.current_password(class="form-control", placeholder=_("Current password"), style="border-radius: 8px;") }}
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    {{ form.new_password.label(class="form-control-label font-weight-bold") }}
+                                    {% if form.new_password.errors %}
+                                        {{ form.new_password(class="form-control is-invalid", placeholder=_("New password")) }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.new_password.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.new_password(class="form-control", placeholder=_("New password"), style="border-radius: 8px;") }}
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-group">
+                                    {{ form.confirm_password.label(class="form-control-label font-weight-bold") }}
+                                    {% if form.confirm_password.errors %}
+                                        {{ form.confirm_password(class="form-control is-invalid", placeholder=_("Confirm new password")) }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.confirm_password.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.confirm_password(class="form-control", placeholder=_("Confirm new password"), style="border-radius: 8px;") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="form-group mt-4">
+                                <button type="submit" class="btn btn-primary btn-block py-2" style="border-radius: 8px; background-color: #3498db; border: none;">
+                                    <i class="fas fa-save mr-2"></i>{{ _("Update Profile") }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .account-page {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+    }
+
+    .card {
+        border-radius: 12px;
+        overflow: hidden;
+        border: none;
+    }
+
+    .profile-section {
+        padding: 20px 0;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        margin-bottom: 25px;
+    }
+
+    .form-section {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .section-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .custom-file-label::after {
+        content: "{{ _('Browse') }}";
+    }
+
+    .btn-primary {
+        transition: all 0.3s;
+    }
+
+    .btn-primary:hover {
+        background-color: #2980b9 !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+</style>
+
+<script>
+    // Update file input label
+    document.querySelector('.custom-file-input').addEventListener('change', function(e) {
+        var fileName = e.target.files[0].name;
+        var nextSibling = e.target.nextElementSibling;
+        nextSibling.innerText = fileName;
+    });
+</script>
+{% endblock %}

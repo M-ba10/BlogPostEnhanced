@@ -1,11 +1,7 @@
 {% include "header.html" %}
 
-<!-- Page Header-->
-<header
-  class="masthead"
-  style="background-image: url('../static/assets/img/home-bg.jpg')"
->
-  <h1>{{ _('Welcome to our website') }}</h1>
+<!-- Page Header with Rounded Corners -->
+<header class="masthead rounded-bottom-4 rounded-top-4 overflow-hidden" style="background-image: url('../static/assets/img/home-bg.jpg')">
   <div class="container position-relative px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
@@ -17,66 +13,141 @@
     </div>
   </div>
 </header>
+
 <!-- Main Content-->
 <div class="container px-4 px-lg-5">
   <div class="row gx-4 gx-lg-5 justify-content-center">
     <div class="col-md-10 col-lg-8 col-xl-7">
-
-      <!-- Author Search Form -->
-     <!-- <form class="mb-4" action="{{ url_for('search_by_author') }}" method="GET">
-        <div class="input-group">
-          <input
-            type="text"
-            class="form-control"
-            name="query"
-            placeholder="Search by author name..."
-            required
-          />
-          <button class="btn btn-primary" type="submit">Search</button>
-        </div>
-      </form>
-      -->
-
-      <!-- Post preview-->
       {% for post in all_posts %}
-      <div class="post-preview">
-        <a href="{{ url_for('show_post', post_id=post.id) }}">
-          <h2 class="post-title">{{ post.title }}</h2>
-          <h3 class="post-subtitle">{{ post.subtitle }}</h3>
-        </a>
-        <p class="post-meta">
-          {{ _('Posted by') }}
-          <!-- post.author.name is now a User object -->
-          <a href="#">{{post.author.name}}</a>
-          {{ _('on') }} {{post.date}}
-          <!-- Only show delete button if user id is 1 (admin user) -->
-          {% if current_user.id == 1: %}
-          <a href="{{url_for('delete_post', post_id=post.id) }}">✘</a>
-          {% endif %}
-        </p>
+      <div class="post-preview d-flex align-items-start mb-4">
+        <div class="author-avatar me-3 position-relative">
+          <img class="rounded-circle shadow-sm"
+               src="{% if post.author.profile_image %}
+                    {{ url_for('static', filename='profile_pics/' + post.author.profile_image) }}
+                    {% else %}
+                    {{ get_gravatar_url(post.author.email, 80) }}
+                    {% endif %}"
+               style="width: 80px; height: 80px; object-fit: cover;">
+          <div class="author-badge">{{ post.author.name|first|upper }}</div>
+        </div>
+        <div class="post-content">
+          <a href="{{ url_for('show_post', post_id=post.id) }}" class="text-decoration-none">
+            <h2 class="post-title mb-1">{{ post.title }}</h2>
+            <h3 class="post-subtitle text-muted mb-2">{{ post.subtitle }}</h3>
+          </a>
+          <div class="author-info d-flex align-items-center">
+            <span class="author-name me-2">
+              <i class="fas fa-user-circle me-1"></i>
+              <span class="fw-semibold">{{ post.author.name }}</span>
+            </span>
+            <span class="post-date text-muted">
+              <i class="far fa-calendar-alt me-1"></i>
+              {{ post.date }}
+            </span>
+            {% if current_user.id == 1 %}
+            <span class="ms-2">
+              <a href="{{url_for('delete_post', post_id=post.id) }}" class="text-danger">
+                <i class="fas fa-trash-alt"></i>
+              </a>
+            </span>
+            {% endif %}
+          </div>
+        </div>
       </div>
-      <!-- Divider-->
-      <hr class="my-4" />
+      {% if not loop.last %}
+      <hr class="my-4 opacity-25" />
+      {% endif %}
       {% endfor %}
 
       <!-- New Post -->
-      <!-- Only show Create Post button if user id is 1 (admin user) -->
       {% if current_user.id == 1: %}
       <div class="d-flex justify-content-end mb-4">
-        <a
-          class="btn btn-primary float-right"
-          href="{{url_for('add_new_post')}}"
-          >{{ _('Create New Post') }}</a
-        >
+        <a class="btn btn-primary" href="{{url_for('add_new_post')}}">
+          <i class="fas fa-plus me-1"></i>{{ _('Create New Post') }}
+        </a>
       </div>
       {% endif %}
 
       <!-- Pager-->
       <div class="d-flex justify-content-end mb-4">
-        <a class="btn btn-secondary text-uppercase" href="#!">{{ _('Older Posts →') }} →</a>
+        <a class="btn btn-secondary text-uppercase" href="#!">
+          {{ _('Older Posts') }} <i class="fas fa-arrow-right ms-1"></i>
+        </a>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+  .masthead {
+    border-bottom-left-radius: 1.5rem !important;
+    border-bottom-right-radius: 1.5rem !important;
+    overflow: hidden;
+  }
+
+  .author-avatar {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .author-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 30px;
+    height: 30px;
+    background-color: #3498db;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border: 2px solid white;
+  }
+
+  .author-info {
+    font-size: 0.9rem;
+  }
+
+  .author-name {
+    color: #2c3e50;
+  }
+
+  .post-title {
+    font-size: 1.5rem;
+    color: #2c3e50;
+    transition: color 0.2s;
+  }
+
+  .post-title:hover {
+    color: #3498db;
+  }
+
+  .post-subtitle {
+    font-size: 1.1rem;
+  }
+
+  @media (max-width: 768px) {
+    .masthead {
+      border-bottom-left-radius: 1rem !important;
+      border-bottom-right-radius: 1rem !important;
+    }
+
+    .author-avatar img {
+      width: 60px;
+      height: 60px;
+    }
+
+    .post-title {
+      font-size: 1.3rem;
+    }
+
+    .post-subtitle {
+      font-size: 1rem;
+    }
+  }
+</style>
 
 {% include "footer.html" %}

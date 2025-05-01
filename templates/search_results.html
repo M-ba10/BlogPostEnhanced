@@ -1,18 +1,21 @@
-{% include "header.html" %}
+{% extends "header.html" %}
 
 {% block content %}
-<header class="masthead" style="background-image: url('{{ url_for('static', filename='assets/img/search-bg.png') }}');">
+<!-- Full-width header with rounded bottom corners -->
+<div class="masthead-wrapper">
+  <header class="masthead rounded-bottom-4 rounded-top-4" style="background-image: url('{{ url_for('static', filename='assets/img/search-bg.png') }}')">
     <div class="container position-relative px-4 px-lg-5">
-    <div class="row gx-4 gx-lg-5 justify-content-center">
-      <div class="col-md-10 col-lg-8 col-xl-7">
-        <div class="site-heading">
-          <h1>{{ _("Search Results") }}</h1>
-          <span class="subheading">for "{{ query }}"</span>
+      <div class="row gx-4 gx-lg-5 justify-content-center">
+        <div class="col-md-10 col-lg-8 col-xl-7">
+          <div class="site-heading">
+            <h1>{{ _("Search Results") }}</h1>
+            <span class="subheading">for "{{ query }}"</span>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</header>
+  </header>
+</div>
 
 <div class="container px-4 px-lg-5 mt-4">
   <div class="row gx-4 gx-lg-5 justify-content-center">
@@ -22,16 +25,106 @@
       {% endif %}
 
       {% for post in posts %}
-        <div class="post-preview">
-          <a href="{{ url_for('show_post', post_id=post.id) }}">
-            <h2 class="post-title">{{ post.title }}</h2>
-            <h3 class="post-subtitle">{{ post.subtitle }}</h3>
-          </a>
-          <p class="post-meta">{{ _("Posted by") }} {{ post.author.name }} {{ _("on") }} {{ post.date }}</p>
+        <div class="post-preview d-flex align-items-start mb-4">
+          <div class="author-avatar me-3 position-relative">
+            <img class="rounded-circle shadow-sm"
+                 src="{% if post.author.image %}
+                      {{ url_for('static', filename='profile_pics/' + post.author.image) }}
+                      {% else %}
+                      {{ get_gravatar_url(post.author.email, 80) }}
+                      {% endif %}"
+                 style="width: 80px; height: 80px; object-fit: cover;">
+            <div class="author-badge">{{ post.author.name|first|upper }}</div>
+          </div>
+          <div class="post-content">
+            <a href="{{ url_for('show_post', post_id=post.id) }}" class="text-decoration-none">
+              <h2 class="post-title mb-1">{{ post.title }}</h2>
+              <h3 class="post-subtitle text-muted mb-2">{{ post.subtitle }}</h3>
+            </a>
+            <div class="author-info d-flex align-items-center">
+              <span class="author-name me-2">
+                <i class="fas fa-user-circle me-1"></i>
+                <span class="fw-semibold">{{ post.author.name }}</span>
+              </span>
+              <span class="post-date text-muted">
+                <i class="far fa-calendar-alt me-1"></i>
+                {{ post.date }}
+              </span>
+            </div>
+          </div>
         </div>
-        <hr class="my-4" />
+        {% if not loop.last %}
+        <hr class="my-4 opacity-25" />
+        {% endif %}
       {% endfor %}
     </div>
   </div>
 </div>
+
+<style>
+   .masthead-wrapper {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+  }
+
+  .masthead {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    width: 100%;
+    padding: 150px 0;
+    margin-bottom: 2rem;
+    border-bottom-left-radius: 1.5rem !important;
+    border-bottom-right-radius: 1.5rem !important;
+    overflow: hidden;
+  }
+
+  .site-heading {
+    color: white;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+  }
+
+  .author-avatar {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .author-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 30px;
+    height: 30px;
+    background-color: #3498db;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border: 2px solid white;
+  }
+
+  @media (max-width: 768px) {
+    .masthead {
+      border-bottom-left-radius: 1rem !important;
+      border-bottom-right-radius: 1rem !important;
+      padding: 100px 0;
+    }
+
+    .author-avatar img {
+      width: 60px;
+      height: 60px;
+    }
+
+    .post-title {
+      font-size: 1.3rem;
+    }
+  }
+</style>
 {% endblock %}

@@ -2,192 +2,206 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, shrink-to-fit=no"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="" />
     <meta name="author" content="" />
     <title>B_log</title>
     {% block styles %}
     <!-- Load Bootstrap-Flask CSS here -->
     {{ bootstrap.load_css() }}
-    <link
-      rel="icon"
-      type="image/x-icon"
-      href="{{ url_for('static', filename='assets/favicon.ico') }}"
-    />
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" />
     <!-- Font Awesome icons (free version)-->
-    <script
-      src="https://use.fontawesome.com/releases/v6.3.0/js/all.js"
-      crossorigin="anonymous"
-    ></script>
+    <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
     <!-- Google fonts-->
-    <link
-      href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic"
-      rel="stylesheet"
-      type="text/css"
-    />
-    <link
-      href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800"
-      rel="stylesheet"
-      type="text/css"
-    />
+    <link href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic" rel="stylesheet" type="text/css" />
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css" />
     <!-- Core theme CSS (includes Bootstrap)-->
-    <link
-      href="{{ url_for('static', filename='css/styles.css') }}"
-      rel="stylesheet"
-    />
+    <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
+    <style>
+      /* Navigation Bar Styling - Dark Blue Theme */
+      #mainNav {
+        background-color: #2c3e50;
+        box-shadow: 0 0.125rem 0.25rem 0 rgba(0, 0, 0, 0.2);
+      }
+
+      /* Consistent alignment for all nav items */
+      .navbar-nav {
+        display: flex;
+        align-items: center;
+      }
+
+      .nav-item {
+        display: flex;
+        align-items: center;
+        height: 60px; /* Fixed height for all items */
+      }
+
+      .nav-link {
+        display: flex;
+        align-items: center;
+        height: 100%;
+        padding: 0 1rem !important;
+        color: #ecf0f1 !important;
+        font-weight: 500;
+      }
+
+      .nav-link:hover {
+        color: #3498db !important;
+      }
+
+      /* Account section styling */
+      .account-section {
+        display: flex;
+        align-items: center;
+      }
+
+      .account-img {
+        width: 30px;
+        height: 30px;
+        object-fit: cover;
+        margin-right: 8px;
+        border: 2px solid rgba(255,255,255,0.2);
+      }
+
+      /* Notification icon styling */
+      .notification-icon {
+        margin-right: 5px;
+        font-size: 1rem;
+      }
+
+      /* Search form styling */
+      .search-form {
+        margin-left: auto;
+        margin-right: 15px;
+      }
+
+      .search-btn {
+        background-color: #3498db;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+      }
+
+      /* Language dropdown styling */
+      .language-dropdown .btn {
+        color: #ecf0f1;
+        border-color: #ecf0f1;
+      }
+
+      /* Ensure content doesn't hide behind navbar */
+      body {
+        padding-top: 80px;
+      }
+
+      /* Mobile menu styling */
+      @media (max-width: 992px) {
+        .navbar-nav {
+          padding-top: 1rem;
+        }
+
+        .nav-item {
+          height: auto;
+          padding: 0.5rem 0;
+        }
+
+        .search-form {
+          margin: 1rem 0;
+        }
+      }
+    </style>
     {% endblock %}
   </head>
   <body>
-    <!-- Navigation-->
-    <nav class="navbar navbar-expand-lg navbar-light" id="mainNav">
-      <div class="container px-4 px-lg-5">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
+      <div class="container">
         <a class="navbar-brand" href="/">{{ _("Get Started") }}</a>
-        <button
-          class="navbar-toggler"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#navbarResponsive"
-          aria-controls="navbarResponsive"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
-        >
-        {{ _("Menu") }}
-          <i class="fas fa-bars"></i>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive">
+          <span class="navbar-toggler-icon"></span>
         </button>
-        <div class="collapse navbar-collapse" id="navbarResponsive">
-          <ul class="navbar-nav ms-auto py-4 py-lg-0">
-            <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('get_all_posts') }}"
-                >{{ _("Home") }}</a
-              >
-            </li>
-            <!-- Only show Login/Register if user is logged out. Otherwise show "Log Out" -->
-            {% if not current_user.is_authenticated: %}
-            <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('login') }}"
-                >{{ _("Login") }}</a
-              >
-            </li>
-            <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('register') }}"
-                >{{ _("Register") }}</a
-              >
-            </li>
-            {% else: %}
-            <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('logout') }}"
-                >{{ _("Log Out") }}</a
-              >
-            </li>
-            <!-- Notification item - only shown when logged in -->
-            {% if current_user.is_authenticated %}
-            <li class="nav-item">
-              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}">
-                <i class="fas fa-bell"></i> {{ _("Notifications") }}
-              </a>
-            </li>
-            {% endif %}
-            {% endif %}
 
+        <div class="collapse navbar-collapse" id="navbarResponsive">
+          <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('about') }}"
-                >{{ _("About") }}</a
-              >
+              <a class="nav-link" href="{{ url_for('get_all_posts') }}">{{ _("Home") }}</a>
+            </li>
+            {% if not current_user.is_authenticated %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('login') }}">{{ _("Login") }}</a>
             </li>
             <li class="nav-item">
-              <a
-                class="nav-link px-lg-3 py-3 py-lg-4"
-                href="{{ url_for('contact') }}"
-                >{{ _("Contact") }}</a
-              >
+              <a class="nav-link" href="{{ url_for('register') }}">{{ _("Register") }}</a>
             </li>
-            <!-- for notifications
-            <li class="nav-item {% if unread_notifications %}has-notifications{% endif %}">
-              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}" title="{{ _('Notification Settings') }}">
-                <span class="notification-badge">
-                  <i class="fas fa-bell"></i>
-                </span>
-                <span class="d-none d-md-inline">{{ _("Notifications") }}</span>
-                {% if unread_notifications %}
-                  <span class="badge bg-danger ms-1">{{ unread_notifications }}</span>
-                {% endif %}
+            {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('logout') }}">{{ _("Log Out") }}</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link account-section" href="{{ url_for('account') }}">
+                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 30) }}"
+                     class="rounded-circle account-img">
+                <span>{{ _("Account") }}</span>
               </a>
             </li>
-            -->
-            <!-- for showing unread notifications-->
-             <!--
-            <li class="nav-item {% if unread_notifications %}has-notifications{% endif %}">
-              <a class="nav-link px-lg-3 py-3 py-lg-4" href="{{ url_for('notification_preferences') }}">
-                <span class="notification-badge">
-                  <i class="fas fa-bell"></i>
-                </span>
-                {{ _("Notifications") }}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('notification_preferences') }}">
+                <i class="fas fa-bell notification-icon"></i>
+                <span>{{ _("Notifications") }}</span>
               </a>
             </li>
-            -->
+            {% endif %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('about') }}">{{ _("About") }}</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('contact') }}">{{ _("Contact") }}</a>
+            </li>
           </ul>
-          
-          <!-- 🔍 Search Form -->
-          <form class="d-flex align-items-center" method="GET" action="{{ url_for('search_by_author') }}">
-            <input
-              class="form-control form-control-sm me-2"
-              type="search"
-              name="query"
-              placeholder={{ _("Search author...") }}
-              aria-label="Search"
-              required
-              style="max-width: 180px; font-size: 0.9rem;"
-            />
-            <button
-              class="btn btn-sm"
-              type="submit"
-              style="
-                background-color: #5c6bc0;
-                color: white;
-                font-size: 0.8rem;
-                padding: 5px 12px;
-                border-radius: 4px;
-                border: none;
-              "
-            >
-            {{ _("Search ") }}
+
+          <!-- Search Form -->
+          <form class="d-flex search-form" method="GET" action="{{ url_for('search_by_author') }}">
+            <input class="form-control form-control-sm me-2"
+                   type="search"
+                   name="query"
+                   placeholder="{{ _('Search author...') }}"
+                   aria-label="Search"
+                   required>
+            <button class="btn search-btn" type="submit">
+              {{ _("Search") }}
             </button>
           </form>
-          <!-- End Search Form -->
+
           <!-- Language Selection -->
-          <!-- In your navbar, replace the current language switcher with: -->
-          <div class="dropdown ms-3">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-              {{ config['LANGUAGES'].get(session.get('language', 'en'), 'English') }}
+          <div class="dropdown language-dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                    type="button"
+                    id="languageDropdown"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+              {{ config['LANGUAGES'].get(session.get('lang', 'en'), 'English') }}
             </button>
             <ul class="dropdown-menu" aria-labelledby="languageDropdown">
               {% for code, name in config['LANGUAGES'].items() %}
                 <li>
-                  <a class="dropdown-item {% if session.get('language', 'en') == code %}active{% endif %}" 
+                  <a class="dropdown-item {% if session.get('lang', 'en') == code %}active{% endif %}"
                     href="{{ url_for('change_language', language=code) }}">
                     {{ name }}
                   </a>
                 </li>
               {% endfor %}
             </ul>
-          </div>   
-          <!-- End Language Selection -->
-          
+          </div>
         </div>
       </div>
     </nav>
+
+    <!-- Main content block -->
+    <main class="container">
+      {% block content %}{% endblock %}
+    </main>
+
+    {% block scripts %}
+    {{ bootstrap.load_js() }}
+    {% endblock %}
   </body>
 </html>

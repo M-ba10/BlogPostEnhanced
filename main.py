@@ -1,8 +1,12 @@
+import secrets
 from datetime import date
-from flask import Flask, abort, request, render_template, redirect, session, url_for, flash
+from tkinter import Image
+
+from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
-from flask_gravatar import Gravatar
+#from flask_gravatar import Gravatar
+import hashlib
 from flask_login import UserMixin, login_required, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
@@ -11,7 +15,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 # Import your forms from the forms.py
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm, UpdateAccountForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_migrate import Migrate
 from flask_babel import Babel, _
@@ -70,6 +74,11 @@ babel = Babel(app)
 app.config['EMAIL_USER'] = os.getenv('EMAIL_USER')
 app.config['EMAIL_PASS'] = os.getenv('EMAIL_PASS')
 
+# Add these near the top with other configs for profile image
+app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
+app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png'}
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB max
+
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
@@ -77,10 +86,33 @@ Bootstrap5(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+
+def allowed_file(filename):
+    return '.' in filename and \
+        filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+
+def save_profile_picture(form_picture):
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_picture.filename)
+    picture_fn = random_hex + f_ext
+    picture_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], picture_fn)
+
+    # Resize image
+    output_size = (125, 125)
+    i = Image.open(form_picture)
+    i.thumbnail(output_size)
+    i.save(picture_path)
+
+    return picture_fn
+
+
+
 # Create an email confirmation token
 def generate_confirmation_token(email):
     serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
     return serializer.dumps(email, salt='email-confirm')
+
 
 # Send the confirmation email:
 def send_confirmation_email(user_email, token):
@@ -116,6 +148,41 @@ def get_locale():
 # Initialize with locale selector
 babel.init_app(app, locale_selector=get_locale)
 
+# The account management rout
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    form = UpdateAccountForm(obj=current_user)  # Pre-populate with current user data
+
+    if form.validate_on_submit():
+        # Update name
+        current_user.name = form.name.data
+
+        # Handle profile picture upload
+        if form.picture.data:
+            picture_file = save_profile_picture(form.picture.data)
+            if current_user.profile_image and current_user.profile_image != 'default.jpg':
+                old_pic = os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_image)
+                if os.path.exists(old_pic):
+                    os.remove(old_pic)
+            current_user.profile_image = picture_file
+
+        # Handle password change
+        if form.new_password.data:
+            if not check_password_hash(current_user.password, form.current_password.data):
+                flash('Current password is incorrect', 'danger')
+                return redirect(url_for('account'))
+            current_user.password = generate_password_hash(form.new_password.data)
+
+        db.session.commit()
+        flash('Your account has been updated!', 'success')
+        return redirect(url_for('account'))
+
+    elif request.method == 'GET':
+        form.name.data = current_user.name  # Pre-populate on GET request
+
+    return render_template('account.html', form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
+
 
 @app.route('/change_language/<language>')
 def change_language(language):
@@ -139,7 +206,7 @@ def load_user(user_id):
 
 
 # For adding profile images to the comment section
-gravatar = Gravatar(app,
+'''gravatar = Gravatar(app,
                     size=100,
                     rating='g',
                     default='retro',
@@ -147,6 +214,12 @@ gravatar = Gravatar(app,
                     force_lower=False,
                     use_ssl=False,
                     base_url=None)
+'''
+def get_gravatar_url(email, size=100):
+    email = email.strip().lower()
+    hash_email = hashlib.md5(email.encode('utf-8')).hexdigest()
+    return f"https://www.gravatar.com/avatar/{hash_email}?s={size}&d=retro"
+
 
 # CREATE DATABASE
 class Base(DeclarativeBase):
@@ -201,7 +274,7 @@ class User(UserMixin, db.Model):
     # For notifications
     receive_notifications = db.Column(db.Boolean, default=True) 
     # For profile images to Do
-    #profile_image = db.Column(db.String(250), default="https://www.gravatar.com/avatar/")
+    profile_image = db.Column(db.String(250), nullable=True)
     
     
     # This will act like a list of BlogPost objects attached to each User.
@@ -286,28 +359,54 @@ def send_new_post_notification(post):
 #🧾 Add a Search Route in Flask
 @app.route("/search", methods=["GET"])
 def search_by_author():
-    # Get the search query from the request
-    # Use request.args.get to get the query parameter from the URL
-    # Use strip() to remove any leading or trailing whitespace
     query = request.args.get("query", "").strip()
-    # If the query is empty, return an error message
+
     if not query:
-        return render_template("search_results.html", posts=[], query=query, message="Please enter a name to search.")
-    # Use ilike for case-insensitive search
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="Please enter a name to search.",
+                               get_gravatar_url=get_gravatar_url)
+
     users = User.query.filter(User.name.ilike(f"%{query}%")).all()
 
     if not users:
-        return render_template("search_results.html", posts=[], query=query, message="No authors found matching that name.")
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="No authors found matching that name.",
+                               get_gravatar_url=get_gravatar_url)
 
-    posts = []
+    # Create a list of posts with author information
+    posts_with_authors = []
     for user in users:
-        posts.extend(user.posts)
+        for post in user.posts:
+            posts_with_authors.append({
+                "id": post.id,
+                "title": post.title,
+                "subtitle": post.subtitle,
+                "date": post.date,
+                "author": {
+                    "name": user.name,
+                    "image": user.profile_image,
+                    "email": user.email
+                }
 
-    if not posts:
-        return render_template("search_results.html", posts=[], query=query, message="Author(s) found, but they haven't written any posts yet.")
 
-    return render_template("search_results.html", posts=posts, query=query)
+            })
+            #posts_with_authors.append(post_data)
 
+    if not posts_with_authors:
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="Author(s) found, but they haven't written any posts yet.",
+                               get_gravatar_url=get_gravatar_url)
+
+    return render_template("search_results.html",
+                           posts=posts_with_authors,
+                           query=query,
+                           get_gravatar_url=get_gravatar_url)
 
 
 
@@ -461,7 +560,7 @@ def logout():
 def get_all_posts():
     result = db.session.execute(db.select(BlogPost))
     posts = result.scalars().all()
-    return render_template("index.html", all_posts=posts, current_user=current_user)
+    return render_template("index.html", all_posts=posts, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 # Add a POST method to be able to post comments
@@ -483,7 +582,7 @@ def show_post(post_id):
         )
         db.session.add(new_comment)
         db.session.commit()
-    return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
+    return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form, get_gravatar_url=get_gravatar_url)
 
 
 # Use a decorator so only an admin user can create new posts
@@ -531,7 +630,7 @@ def notification_preferences():
         flash(_("Notification preferences updated!"))
         return redirect(url_for("notification_preferences"))
     
-    return render_template("notification_preferences.html")
+    return render_template("notification_preferences.html", get_gravatar_url=get_gravatar_url)
 
 
 # Use a decorator so only an admin user can edit a post
@@ -569,12 +668,12 @@ def delete_post(post_id):
 
 @app.route("/about")
 def about():
-    return render_template("about.html", current_user=current_user)
+    return render_template("about.html", current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 @app.route("/contact")
 def contact():
-    return render_template("contact.html", current_user=current_user)
+    return render_template("contact.html", current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 if __name__ == "__main__":

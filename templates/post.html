@@ -9,6 +9,11 @@
         <div class="post-heading">
           <h1>{{ post.title }}</h1>
           <h2 class="subheading">{{ post.subtitle }}</h2>
+           <img class="rounded-circle article-img"
+             src="{{ url_for('static', filename='profile_pics/' + post.author.profile_image)
+              if post.author.profile_image
+              else get_gravatar_url(post.author.email, 65) }}"
+           >
           <span class="meta"
             >Posted by
             <!-- Changed from post.author -->
@@ -51,9 +56,8 @@
             {% for comment in post.comments: %}
             <li>
               <div class="commenterImage">
-                <img
-                  src="{{ comment.comment_author.email | gravatar }}"
-                />
+                <img src="{{ get_gravatar_url(comment.comment_author.email) }}" width="50" height="50" />
+
               </div>
               <div class="commentText">
                 {{comment.text|safe}}

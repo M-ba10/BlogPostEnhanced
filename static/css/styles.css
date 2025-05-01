@@ -10929,3 +10929,28 @@ header.masthead .post-heading .meta a {
     margin-right: 8px;
   }
 }
+
+body {
+    padding-top: 80px;
+}
+
+.account-img {
+    width: 125px;
+    height: 125px;
+    object-fit: cover;
+}
+
+.navbar {
+    transition: all 0.2s;
+}
+
+.card {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 0 15px rgba(0,0,0,.1);
+}
+
+/* Active nav link styling */
+.navbar-nav .nav-item .nav-link.active {
+    color: #5c6bc0 !important;
+}

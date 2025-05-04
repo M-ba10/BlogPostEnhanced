@@ -10954,3 +10954,31 @@ body {
 .navbar-nav .nav-item .nav-link.active {
     color: #5c6bc0 !important;
 }
+
+.tags-cloud {
+  line-height: 2;
+  text-align: center;
+}
+
+.tags-cloud a {
+  display: inline-block;
+  margin: 0.2rem;
+  padding: 0.3rem 0.6rem;
+  background: #f8f9fa;
+  border-radius: 1rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.tags-cloud a:hover {
+  background: #0d6efd;
+  color: white;
+  transform: translateY(-2px);
+}
+
+/* Tag size variations */
+.tag-size-1 { font-size: 0.8em; }
+.tag-size-2 { font-size: 1.0em; }
+.tag-size-3 { font-size: 1.2em; }
+.tag-size-4 { font-size: 1.4em; }
+.tag-size-5 { font-size: 1.6em; }

@@ -1,0 +1,327 @@
+{% extends "header.html" %}
+{% block title %}Posts Tagged "{{ tag.name }}"{% endblock %}
+
+{% block content %}
+<!-- Page Header with Animated Gradient -->
+<header class="masthead rounded-bottom-4 rounded-top-4" style="background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);">
+  <div class="container position-relative px-4 px-lg-5">
+    <div class="row gx-4 gx-lg-5 justify-content-center">
+      <div class="col-md-10 col-lg-8 col-xl-7">
+        <div class="site-heading text-center text-white">
+          <h1 class="display-4 fw-bold">{{ _("Posts Tagged") }}</h1>
+          <h2 class="subheading mt-3 bg-white text-dark d-inline-block px-3 py-1 rounded-pill shadow-sm">
+            <i class="fas fa-tag me-2"></i>{{ tag.name }}
+          </h2>
+          <span class="meta text-white-50 mt-2 d-block">
+            <i class="fas fa-newspaper me-1"></i> {{ posts|length }} {{ _("articles") }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Content -->
+<div class="container px-4 px-lg-5 py-5">
+  <div class="row gx-4 gx-lg-5 justify-content-center">
+    <div class="col-md-10 col-lg-8 col-xl-7">
+
+      <!-- Tag Actions Bar -->
+      <div class="d-flex justify-content-between align-items-center mb-4 p-3 bg-light rounded-3 shadow-sm">
+        <div class="d-flex align-items-center">
+          <i class="fas fa-sliders-h text-primary me-2"></i>
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">
+              <span id="sortLabel">
+                {% if sort == 'oldest' %}{{ _("Oldest") }}
+                {% elif sort == 'popular' %}{{ _("Popular") }}
+                {% else %}{{ _("Newest") }}{% endif %}
+              </span>
+            </button>
+            <ul class="dropdown-menu shadow">
+              <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center sort-option {% if sort == 'newest' %}active{% endif %}"
+                   data-sort="newest">
+                  {{ _("Newest") }}
+                  {% if sort == 'newest' %}<i class="fas fa-check ms-2"></i>{% endif %}
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center sort-option {% if sort == 'oldest' %}active{% endif %}"
+                   data-sort="oldest">
+                  {{ _("Oldest") }}
+                  {% if sort == 'oldest' %}<i class="fas fa-check ms-2"></i>{% endif %}
+                </a>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center sort-option {% if sort == 'popular' %}active{% endif %}"
+                   data-sort="popular">
+                  {{ _("Most Popular") }}
+                  {% if sort == 'popular' %}<i class="fas fa-check ms-2"></i>{% endif %}
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <button class="btn btn-sm {% if is_subscribed %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                id="subscribeTag">
+          <i class="far fa-bell"></i>
+          <span id="subscribeText">
+            {% if is_subscribed %}{{ _("Subscribed") }}{% else %}{{ _("Get Updates") }}{% endif %}
+          </span>
+        </button>
+        {% endif %}
+      </div>
+
+      <!-- Posts List -->
+      <div class="posts-list">
+        {% for post in posts %}
+        <div class="post-card card border-0 shadow-sm mb-4 overflow-hidden">
+          <div class="row g-0">
+            <!-- Featured Image -->
+            <div class="col-md-4 post-thumbnail"
+                 style="background-image: url('{{ post.img_url }}'); min-height: 200px;">
+            </div>
+
+            <!-- Post Content -->
+            <div class="col-md-8">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <a href="{{ url_for('show_post', post_id=post.id) }}" class="text-decoration-none">
+                      <h3 class="card-title h5 mb-1">{{ post.title }}</h3>
+                    </a>
+                    <p class="card-text text-muted small mb-2">{{ post.subtitle }}</p>
+                  </div>
+                  <span class="badge bg-primary bg-opacity-10 text-primary small">
+                    <i class="far fa-clock me-1"></i> {{ calculate_reading_time(post.body) }} {{ _("min") }}
+                  </span>
+                </div>
+
+                <!-- Author & Metadata -->
+                <div class="d-flex align-items-center mt-3">
+                  <img src="{{ get_gravatar_url(post.author.email, 36) }}"
+                       class="rounded-circle me-2 border border-2 border-white shadow"
+                       width="36" height="36" alt="{{ post.author.name }}">
+                  <div class="flex-grow-1">
+                    <span class="d-block text-dark fw-bold small">{{ post.author.name }}</span>
+                    <span class="text-muted small">{{ post.date }}</span>
+                  </div>
+                  <div class="text-end">
+                    <span class="text-danger small">
+                      <i class="fas fa-heart"></i> {{ post.like_count }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Tags -->
+                <div class="post-tags mt-3">
+                  {% for tag in post.tags %}
+                  <a href="{{ url_for('tag', tag_name=tag.name) }}"
+                     class="tag-pill small">
+                    <i class="fas fa-tag fa-xs me-1"></i>{{ tag.name }}
+                  </a>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state text-center py-5">
+          <div class="empty-state-icon bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+               style="width: 80px; height: 80px;">
+            <i class="fas fa-tag fa-2x"></i>
+          </div>
+          <h4 class="fw-bold">{{ _("No posts found") }}</h4>
+          <p class="text-muted mb-4">{{ _("We couldn't find any posts tagged with") }} "{{ tag.name }}"</p>
+          <a href="{{ url_for('get_all_posts') }}" class="btn btn-primary px-4">
+            <i class="fas fa-arrow-left me-2"></i>{{ _("Browse All Posts") }}
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Back to Top -->
+      <div class="text-center mt-4">
+        <button id="backToTop" class="btn btn-sm btn-outline-primary">
+          <i class="fas fa-arrow-up me-1"></i>{{ _("Back to Top") }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* === Typography === */
+  .post-card .card-title {
+    transition: color 0.2s ease;
+  }
+
+  .post-card:hover .card-title {
+    color: #0d6efd !important;
+  }
+
+  /* === Post Thumbnail === */
+  .post-thumbnail {
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.3s ease;
+  }
+
+  .post-card:hover .post-thumbnail {
+    transform: scale(1.03);
+  }
+
+  /* === Tag Pills === */
+  .tag-pill {
+    display: inline-block;
+    background-color: #f8f9fa;
+    color: #495057;
+    padding: 0.35rem 0.7rem;
+    border-radius: 50px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border: 1px solid #dee2e6;
+  }
+
+  .tag-pill:hover {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(13, 110, 253, 0.1);
+  }
+
+  /* === Empty State === */
+  .empty-state-icon {
+    transition: transform 0.3s ease;
+  }
+
+  .empty-state:hover .empty-state-icon {
+    transform: scale(1.1);
+  }
+
+  /* === Card Hover Effect === */
+  .post-card {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+
+  .post-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  /* === Responsive Adjustments === */
+  @media (max-width: 767.98px) {
+    .post-thumbnail {
+      min-height: 150px !important;
+    }
+
+    .post-card .row {
+      flex-direction: column;
+    }
+
+    .post-card .col-md-4 {
+      width: 100%;
+    }
+  }
+
+  /* === Animation === */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .posts-list .post-card {
+    animation: fadeInUp 0.5s ease forwards;
+    opacity: 0;
+  }
+
+  .posts-list .post-card:nth-child(1) { animation-delay: 0.1s; }
+  .posts-list .post-card:nth-child(2) { animation-delay: 0.2s; }
+  .posts-list .post-card:nth-child(3) { animation-delay: 0.3s; }
+  .posts-list .post-card:nth-child(n+4) { animation-delay: 0.4s; }
+</style>
+
+<script>
+  // Sort functionality
+  document.querySelectorAll('.sort-option').forEach(option => {
+    option.addEventListener('click', function(e) {
+      e.preventDefault();
+      const sort = this.getAttribute('data-sort');
+      window.location.href = ?sort=${sort};
+    });
+  });
+
+  // Tag subscription
+  document.getElementById('subscribeTag')?.addEventListener('click', function() {
+    const btn = this;
+    btn.innerHTML = <i class="fas fa-spinner fa-spin"></i> ${btn.textContent.trim()};
+
+    fetch(/subscribe_to_tag/{{ tag.name }}, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken':'{{ csrf_token() }}'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const text = document.getElementById('subscribeText');
+
+        if (data.action === 'subscribe') {
+          btn.classList.remove('btn-outline-secondary');
+          btn.classList.add('btn-success');
+          text.textContent = '{{ _("Subscribed") }}';
+          btn.innerHTML = <i class="far fa-bell"></i> ${text.textContent};
+
+          // Toast notification
+          const toast = new bootstrap.Toast(document.getElementById('subscribeToast'));
+          document.getElementById('toastMessage').textContent = '{{ _("You'll now receive notifications for this tag") }}';
+          toast.show();
+        } else {
+          btn.classList.remove('btn-success');
+          btn.classList.add('btn-outline-secondary');
+          text.textContent = '{{ _("Get Updates") }}';
+          btn.innerHTML = <i class="far fa-bell"></i> ${text.textContent};
+        }
+      }
+    });
+  });
+
+  // Back to top button
+  document.getElementById('backToTop').addEventListener('click', () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+</script>
+
+<!-- Toast Notification (add to your base.html) -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+  <div id="subscribeToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header bg-primary text-white">
+      <strong class="me-auto"><i class="far fa-bell me-2"></i>{{ _("Tag Subscription") }}</strong>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body" id="toastMessage"></div>
+  </div>
+</div>
+{% endblock %}

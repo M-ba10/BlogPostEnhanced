@@ -3,6 +3,11 @@ from datetime import date, datetime
 from time import timezone
 from PIL import Image
 #from flask_wtf.csrf import csrf_token
+from flask_wtf.csrf import CSRFProtect
+
+
+from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request, jsonify
 from flask_bootstrap import Bootstrap5
@@ -54,6 +59,8 @@ secret_key = os.getenv('FLASK_KEY')
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = secret_key
+
+csrf = CSRFProtect(app)
 
 # Configure Flask-Babel for language support
 #app.config['LANGUAGES'] = ['en', 'fr', 'ar']  # Supported languages
@@ -322,7 +329,8 @@ class User(UserMixin, db.Model):
     # added to include like relationship 2
     likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
 
-
+    # for tag
+    subscribed_tags = db.relationship('Tag', secondary='user_tag_subscriptions', backref='subscribers')
 
 
     # method for checking whether the user has liked the post 3
@@ -330,6 +338,11 @@ class User(UserMixin, db.Model):
         return Like.query.filter_by(user_id=self.id, post_id=post_id).first() is not None
 
 
+# And create this association table
+user_tag_subscriptions = db.Table('user_tag_subscriptions',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+)
 
 # Create a table for the comments on the blog posts
 class Comment(db.Model):
@@ -963,9 +976,73 @@ def delete_comment(comment_id):
 def tag(tag_name):
     tag = Tag.query.filter_by(name=tag_name).first_or_404()
     posts = tag.posts.order_by(BlogPost.date.desc()).all()
+    sort = request.args.get('sort', 'newest')
 
-    return render_template('tag.html', tag=tag, posts=posts)
+    is_subscribed = False
+    if current_user.is_authenticated:
+        is_subscribed = tag in current_user.subscribed_tags
 
+    #sorting logic
+    base_query = (db.session.query(BlogPost)
+                   .join(post_tags)
+                   .join(Tag)
+                   .filter(Tag.name == tag_name)
+                   .options(joinedload(BlogPost.author)))
+
+    if sort == "oldest":
+        posts = base_query.order_by(BlogPost.date.sec()).all()
+    elif sort == 'popular':
+        posts = sorted(base_query.all(), key=lambda p: p.like_count, reverse=True)
+    else:  # newest
+        posts = base_query.order_by(BlogPost.date.desc()).all()
+
+
+    return render_template('tag.html',
+                           tag=tag,
+                           posts=posts,
+                           sort=sort,
+                           is_subscribed=is_subscribed,
+                           get_gravatar_url=get_gravatar_url,
+                           calculate_reading_time=calculate_reading_time)
+
+
+@app.route('/subscribe_to_tag/<tag_name>', methods=['POST'])
+@login_required
+def subscribe_to_tag(tag_name):
+    tag = Tag.query.filter_by(name=tag_name).first_or_404()
+
+    if tag in current_user.subscribed_tags:
+        current_user.subscribed_tags.remove(tag)
+        action = 'unsubscribe'
+    else:
+        current_user.subscribed_tags.append(tag)
+        action = 'subscribe'
+
+    db.session.commit()
+    return (jsonify({'success': True, 'action': action}))
+
+
+@app.context_processor
+def inject_tags():
+    # Get top 20 most used tags with counts
+    popular_tags = db.session.query(
+        Tag,
+        db.func.count(post_tags.c.post_id).label('count')
+    ).join(post_tags).group_by(Tag).order_by(db.desc('count')).limit(20).all()
+
+    # Add size classification (for tag cloud)
+    tags_with_size = []
+    if popular_tags:
+        max_count = popular_tags[0][1]
+        for tag, count in popular_tags:
+            size = min(5, max(1, round(5 * count / max_count)))
+            tags_with_size.append({
+                'name': tag.name,
+                'size': size,
+                'count': count
+            })
+
+    return {'popular_tags': tags_with_size}
 
 # For reading time, add this to your post route:
 def calculate_reading_time(content):

@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="" />
     <meta name="author" content="" />
+    <!-- In header.html before </head> -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <title>B_log</title>
     {% block styles %}
     <!-- Load Bootstrap-Flask CSS here -->
@@ -108,6 +111,8 @@
           margin: 1rem 0;
         }
       }
+
+
     </style>
     <!--
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
@@ -202,13 +207,14 @@
       </div>
     </nav>
 
-    <!-- Main content block -->
+<!-- Main content block -->
     <main class="container">
-      {% block content %}{% endblock %}
+       {% block content %}{% endblock %}
     </main>
 
     {% block scripts %}
     {{ bootstrap.load_js() }}
     {% endblock %}
   </body>
+
 </html>

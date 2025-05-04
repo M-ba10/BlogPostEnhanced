@@ -3,12 +3,35 @@
 
 <!-- Page Header-->
 <header class="masthead rounded-bottom-4 rounded-top-4" style="background-image: url('{{post.img_url}}')">
+
+    <div class="progress-container">
+        <div class="progress-bar" id="readingProgress"></div>
+    </div>
+
   <div class="container position-relative px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
         <div class="post-heading">
           <h1>{{ post.title }}</h1>
           <h2 class="subheading">{{ post.subtitle }}</h2>
+
+            <!-- Reading time - Add this to your post.html below the subtitle -->
+            <div class="reading-time mb-2">
+              <i class="far fa-clock"></i> {{ reading_time if reading_time else "5" }} {{ _("min read") }}
+            </div>
+
+            <!-- Post tags - If you have a tag system -->
+            {% if post.tags %}
+            <div class="post-tags">
+              {% for tag in post.tags %}
+                <a href="{{ url_for('tag', tag_name=tag.name) }}" class="post-tag">
+                  <i class="fas fa-tag"></i> {{ tag.name }}
+                </a>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+
            <img class="rounded-circle article-img"
              src="{{ url_for('static', filename='profile_pics/' + post.author.profile_image)
               if post.author.profile_image
@@ -24,10 +47,109 @@
       </div>
     </div>
   </div>
+
+    <style>
+      /* Reading progress bar */
+      .progress-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        z-index: 1000;
+      }
+
+      .progress-bar {
+        height: 4px;
+        background: #0d6efd;
+        width: 0%;
+      }
+
+      /* Back to top button */
+      #backToTop {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: none;
+        z-index: 999;
+        opacity: 0.7;
+        transition: opacity 0.2s ease-in-out;
+      }
+
+      #backToTop:hover {
+        opacity: 1;
+      }
+
+      /* Comment highlight animation */
+      @keyframes highlightComment {
+        0% { background-color: rgba(255, 243, 205, 0.5); }
+        100% { background-color: transparent; }
+      }
+
+      .highlight-comment {
+        animation: highlightComment 3s ease;
+      }
+
+      /* Table of contents */
+      .toc {
+        background-color: #f8f9fa;
+        border-radius: 0.25rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .toc-title {
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+      }
+
+      .toc ul {
+        padding-left: 1rem;
+        margin-bottom: 0;
+      }
+
+      /* Tags styling */
+      .post-tags {
+        margin: 1rem 0;
+      }
+
+      .post-tag {
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        margin-right: 0.5rem;
+        font-size: 0.875rem;
+        transition: background-color 0.2s;
+        text-decoration: none;
+      }
+
+      .post-tag:hover {
+        background-color: #dee2e6;
+        color: #212529;
+      }
+
+      /* Reading time */
+      .reading-time {
+        font-style: italic;
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+    </style>
 </header>
+
+<!-- Table of contents -->
+<div class="toc mb-4">
+  <div class="toc-title">{{ _("Table of Contents") }}</div>
+  <div id="tocContent">
+    <!-- This will be populated by JavaScript -->
+  </div>
+</div>
 
 <!-- Post Content -->
 <article>
+
+
   <div class="container px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
@@ -65,6 +187,41 @@
         </div>
         {% endif %}
 
+          <!-- Social Sharing Feature -->
+        <div class="social-sharing my-4">
+          <hr>
+          <h5>{{ _("Share this post") }}</h5>
+          <div class="d-flex align-items-center gap-2">
+            <!-- Twitter/X Share -->
+            <a href="https://twitter.com/intent/tweet?url={{ request.url|urlencode }}&text={{ post.title|urlencode }}"
+               target="_blank" rel="noopener noreferrer"
+               class="btn btn-outline-dark btn-sm social-btn">
+              <i class="fab fa-twitter"></i> Twitter
+            </a>
+
+            <!-- Facebook Share -->
+            <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url|urlencode }}"
+               target="_blank" rel="noopener noreferrer"
+               class="btn btn-outline-primary btn-sm social-btn">
+              <i class="fab fa-facebook-f"></i> Facebook
+            </a>
+
+            <!-- LinkedIn Share -->
+            <a href="https://www.linkedin.com/shareArticle?mini=true&url={{ request.url|urlencode }}&title={{ post.title|urlencode }}"
+               target="_blank" rel="noopener noreferrer"
+               class="btn btn-outline-info btn-sm social-btn">
+              <i class="fab fa-linkedin-in"></i> LinkedIn
+            </a>
+
+            <!-- Copy Link Button -->
+            <button class="btn btn-outline-secondary btn-sm copy-link-btn"
+                    data-url="{{ request.url }}"
+                    onclick="copyPostLink(this)">
+              <i class="fas fa-link"></i> <span class="btn-text">{{ _("Copy Link") }}</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Comments Area -->
 
         <!-- Load the CKEditor -->
@@ -77,69 +234,137 @@
 
           <!-- : if not comment.parent_id  -->
           {% for comment in post.comments %}
-              <div class="comment mb-4" id="comment-{{comment.id}}">
-                  <div class="d-flex">
-                      <div class="flex-shrink-0">
-                          <img src="{{ get_gravatar_url(comment.comment_author.email, 50) }}"
-                               class="rounded-circle" width="50" height="50" alt="{{comment.comment_author.name}}">
-                      </div>
-                      <div class="flex-grow-1 ms-3">
-                          <div class="d-flex justify-content-between align-items-center">
-                              <h5 class="mt-0 mb-1">{{comment.comment_author.name}}</h5>
-                              <small class="text-muted">{{comment.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
-                          </div>
-                          <div class="comment-content mb-2">
-                              {{comment.text|safe}}
-                          </div>
+            {% if not comment.parent_id %}
+                <div class="comment mb-4" id="comment-{{comment.id}}">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <img src="{{ get_gravatar_url(comment.comment_author.email, 50) }}"
+                                 class="rounded-circle" width="50" height="50" alt="{{comment.comment_author.name}}">
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mt-0 mb-1">{{comment.comment_author.name}}</h5>
+                                <div>
+                                    <small class="text-muted">{{comment.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
 
-                          <!-- Reply button -->
-                          {% if current_user.is_authenticated %}
-                          <button class="btn btn-sm btn-outline-secondary reply-btn"
-                                  data-comment-id="{{comment.id}}">
-                              {{ _("Reply") }}
-                          </button>
-                          {% endif %}
+                                    <!-- Comment Actions Dropdown (for comment author or admin) -->
+                                    {% if current_user.is_authenticated and (current_user.id == comment.comment_author.id or current_user.id == 1) %}
+                                    <div class="dropdown d-inline-block ms-2">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                                                id="commentActions{{comment.id}}" data-bs-toggle="dropdown"
+                                                aria-expanded="false">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="commentActions{{comment.id}}">
+                                            <li>
+                                                <button class="dropdown-item edit-comment-btn"
+                                                        data-comment-id="{{comment.id}}"
+                                                        data-comment-text="{{ comment.text|escape }}">
+                                                    <i class="fas fa-edit"></i> {{ _("Edit") }}
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item delete-comment-btn text-danger"
+                                                        data-comment-id="{{comment.id}}"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#deleteCommentModal">
+                                                    <i class="fas fa-trash-alt"></i> {{ _("Delete") }}
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
 
-                          <!-- Reply form (hidden initially) -->
-                          <div class="reply-form mt-3" id="reply-form-{{comment.id}}" style="display:none;">
-                              {{ render_form(reply_form, novalidate=True, button_map={"submit": "primary"}) }}
-                              <input type="hidden" name="parent_comment_id" value="{{comment.id}}">
-                          </div>
+                            <!-- Comment content (will be replaced when editing) -->
+                            <div class="comment-content mb-2" id="comment-content-{{comment.id}}">
+                                {{comment.text|safe}}
+                            </div>
 
-                          <!-- Replies to this comment -->
-                          <div class="replies mt-3 ms-4 ps-3 border-start">
-                              {% for reply in comment.replies|sort(attribute='created_at') %}
-                                  <div class="reply mb-3" id="comment-{{reply.id}}">
-                                      <div class="d-flex">
-                                          <div class="flex-shrink-0">
-                                              <img src="{{ get_gravatar_url(reply.comment_author.email, 40) }}"
-                                                   class="rounded-circle" width="40" height="40" alt="{{reply.comment_author.name}}">
-                                          </div>
-                                          <div class="flex-grow-1 ms-3">
-                                              <div class="d-flex justify-content-between align-items-center">
-                                                  <h6 class="mt-0 mb-1">{{reply.comment_author.name}}</h6>
-                                                  <small class="text-muted">{{reply.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
-                                              </div>
-                                              <div class="reply-content">
-                                                  {{reply.text|safe}}
-                                              </div>
-                                          </div>
-                                      </div>
-                                  </div>
-                              {% endfor %}
-                          </div>
-                      </div>
-                      </div>
-                  </div>
-              {% else %}
-                  <p class="text-muted">{{ _("No comments yet. Be the first to comment!") }}</p>
-            {% endfor %}
-          </div>
+                            <!-- Comment edit form (hidden initially) -->
+                            <div class="edit-comment-form mt-2 mb-3" id="edit-form-{{comment.id}}" style="display:none;">
+                                <textarea class="form-control mb-2" id="edit-textarea-{{comment.id}}"></textarea>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-primary save-edit-btn" data-comment-id="{{comment.id}}">
+                                        {{ _("Save") }}
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary cancel-edit-btn" data-comment-id="{{comment.id}}">
+                                        {{ _("Cancel") }}
+                                    </button>
+                                </div>
+                            </div>
 
+                            <!-- Reply button -->
+                            {% if current_user.is_authenticated %}
+                            <button class="btn btn-sm btn-outline-secondary reply-btn"
+                                    data-comment-id="{{comment.id}}">
+                                {{ _("Reply") }}
+                            </button>
+                            {% endif %}
 
+                            <!-- Reply form (hidden initially) -->
+                            <div class="reply-form mt-3" id="reply-form-{{comment.id}}" style="display:none;">
+                                {{ render_form(reply_form, novalidate=True, button_map={"submit": "primary"}) }}
+                                <input type="hidden" name="parent_comment_id" value="{{comment.id}}">
+                            </div>
+
+                            <!-- Replies to this comment -->
+                            <div class="replies mt-3 ms-4 ps-3 border-start">
+                                {% for reply in comment.replies|sort(attribute='created_at') %}
+                                    <div class="reply mb-3" id="comment-{{reply.id}}">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <img src="{{ get_gravatar_url(reply.comment_author.email, 40) }}"
+                                                     class="rounded-circle" width="40" height="40" alt="{{reply.comment_author.name}}">
+                                            </div>
+                                            <div class="flex-grow-1 ms-3">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <h6 class="mt-0 mb-1">{{reply.comment_author.name}}</h6>
+                                                    <small class="text-muted">{{reply.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
+                                                </div>
+                                                <div class="reply-content">
+                                                    {{reply.text|safe}}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <p class="text-muted">{{ _("No comments yet. Be the first to comment!") }}</p>
+        {% endfor %}
       </div>
     </div>
   </div>
+    <!-- Delete Comment Modal -->
+    <div class="modal fade" id="deleteCommentModal" tabindex="-1" aria-labelledby="deleteCommentModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteCommentModalLabel">{{ _("Delete Comment") }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {{ _("Are you sure you want to delete this comment? This action cannot be undone.") }}
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _("Cancel") }}</button>
+            <button type="button" class="btn btn-danger" id="confirmDeleteComment">{{ _("Delete") }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- Back to top button -->
+    <button id="backToTop" class="btn btn-primary rounded-circle" aria-label="Back to top">
+      <i class="fas fa-arrow-up"></i>
+    </button>
 </article>
 
 <!-- Add for like footer.html -->
@@ -152,7 +377,7 @@
       const postId = this.getAttribute('data-post-id');
       console.log('Like button clicked for post:', postId); // Debug logging
 
-      fetch(/like/${postId}, {
+      fetch(`/like/${postId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,38 +424,250 @@
   } else {
     console.error('Like button element not found');
   }
-});
-
-
-  document.addEventListener('DOMContentLoaded', function() {
-    // Handle reply button clicks
-    document.querySelectorAll('.reply-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const commentId = this.getAttribute('data-comment-id');
-            const form = document.getElementById(reply-form-${commentId});
-
-            // Toggle form visibility
-            if (form.style.display === 'none') {
-                form.style.display = 'block';
-                this.textContent = '{{ _("Cancel") }}';
-                // Smooth scroll to the form
-                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } else {
-                form.style.display = 'none';
-                this.textContent = '{{ _("Reply") }}';
-            }
-        });
     });
 
-    // If URL has a comment hash, scroll to it
-    if (window.location.hash && window.location.hash.startsWith('#comment-')) {
-        const commentElement = document.querySelector(window.location.hash);
-        if (commentElement) {
-            setTimeout(() => {
-                commentElement.scrollIntoView({ behavior: 'smooth' });
-            }, 300);
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // Handle reply button clicks
+        document.querySelectorAll('.reply-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                const form = document.getElementById(`reply-form-${commentId}`);
+
+                // Toggle form visibility
+                if (form.style.display === 'none') {
+                    form.style.display = 'block';
+                    this.textContent = '{{ _("Cancel") }}';
+                    // Smooth scroll to the form
+                    form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                } else {
+                    form.style.display = 'none';
+                    this.textContent = '{{ _("Reply") }}';
+                }
+            });
+        });
+
+        // If URL has a comment hash, scroll to it
+        if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+            const commentElement = document.querySelector(window.location.hash);
+            if (commentElement) {
+                setTimeout(() => {
+                    commentElement.scrollIntoView({ behavior: 'smooth' });
+                }, 300);
+            }
         }
+    });
+
+    function copyPostLink(button) {
+        const url = button.getAttribute('data-url');
+        navigator.clipboard.writeText(url).then(() => {
+        const btnText = button.querySelector('.btn-text');
+        const originalText = btnText.textContent;
+
+        // Change button text to show feedback
+        btnText.textContent = '{{ _("Copied!") }}';
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-success');
+
+        // Reset button after 2 seconds
+        setTimeout(() => {
+          btnText.textContent = originalText;
+          button.classList.remove('btn-success');
+          button.classList.add('btn-outline-secondary');
+        }, 2000);
+        }).catch(err => {
+        console.error('Failed to copy: ', err);
+        });
     }
+
+        // Comment management
+    document.addEventListener('DOMContentLoaded', function() {
+        // Variables to store comment ID for deletion
+        let commentToDelete = null;
+
+        // Handle edit comment button clicks
+        document.querySelectorAll('.edit-comment-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                const commentText = this.getAttribute('data-comment-text');
+                const contentDiv = document.getElementById(comment-content-${commentId});
+                const editForm = document.getElementById(edit-form-${commentId});
+                const editTextarea = document.getElementById(edit-textarea-${commentId});
+
+                // Hide content, show edit form
+                contentDiv.style.display = 'none';
+                editForm.style.display = 'block';
+
+                // Set existing comment text in textarea
+                editTextarea.value = commentText;
+                editTextarea.focus();
+            });
+        });
+
+        // Handle save edit button clicks
+        document.querySelectorAll('.save-edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+                const editTextarea = document.getElementById(edit-textarea-${commentId});
+                const newText = editTextarea.value.trim();
+
+                if (newText) {
+                    // Send update to server
+                    fetch(/comment/${commentId}/edit, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}'
+                        },
+                        body: JSON.stringify({ text: newText }),
+                        credentials: 'same-origin'
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Update comment content
+                        const contentDiv = document.getElementById(comment-content-${commentId});
+                        contentDiv.innerHTML = data.text;
+
+                        // Hide edit form, show content
+                        contentDiv.style.display = 'block';
+                        document.getElementById(edit-form-${commentId}).style.display = 'none';
+                    })
+                    .catch(error => console.error('Error updating comment:', error));
+                }
+            });
+        });
+
+        // Handle cancel edit button clicks
+        document.querySelectorAll('.cancel-edit-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const commentId = this.getAttribute('data-comment-id');
+
+                // Hide edit form, show content
+                document.getElementById(comment-content-${commentId}).style.display = 'block';
+                document.getElementById(edit-form-${commentId}).style.display = 'none';
+            });
+        });
+
+        // Handle delete comment button clicks
+        document.querySelectorAll('.delete-comment-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                commentToDelete = this.getAttribute('data-comment-id');
+            });
+        });
+
+        // Handle confirm delete button click
+        document.getElementById('confirmDeleteComment').addEventListener('click', function() {
+            if (commentToDelete) {
+                // Send delete request to server
+                fetch(/comment/${commentToDelete}/delete, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}'
+                    },
+                    credentials: 'same-origin'
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Remove comment from DOM
+                        const commentElement = document.getElementById(comment-${commentToDelete});
+                        commentElement.style.opacity = '0';
+                        setTimeout(() => {
+                            commentElement.remove();
+                        }, 500);
+
+                        // Close modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteCommentModal'));
+                        modal.hide();
+                    }
+                })
+                .catch(error => console.error('Error deleting comment:', error));
+            }
+        });
+});
+
+ // UI enhancements
+document.addEventListener('DOMContentLoaded', function() {
+  // Reading progress bar
+  window.addEventListener('scroll', function() {
+    const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+    const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    const scrolled = (winScroll / height) * 100;
+    document.getElementById('readingProgress').style.width = scrolled + '%';
+  });
+
+  // Back to top button
+  const backToTopButton = document.getElementById('backToTop');
+
+  window.addEventListener('scroll', function() {
+    if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+      backToTopButton.style.display = 'block';
+    } else {
+      backToTopButton.style.display = 'none';
+    }
+  });
+
+  backToTopButton.addEventListener('click', function() {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  });
+
+  // Generate table of contents from headings
+  const article = document.querySelector('article');
+  const tocContent = document.getElementById('tocContent');
+
+  if (article && tocContent) {
+    const headings = article.querySelectorAll('h1, h2, h3, h4');
+
+    if (headings.length > 1) {
+      const toc = document.createElement('ul');
+
+      headings.forEach(function(heading, index) {
+        // Add ID to heading if it doesn't have one
+        if (!heading.id) {
+          heading.id = 'heading-' + index;
+        }
+
+        const listItem = document.createElement('li');
+        const link = document.createElement('a');
+
+        link.href = '#' + heading.id;
+        link.textContent = heading.textContent;
+        link.style.textDecoration = 'none';
+
+        // Indent based on heading level
+        if (heading.tagName === 'H3') {
+          listItem.style.marginLeft = '1rem';
+        } else if (heading.tagName === 'H4') {
+          listItem.style.marginLeft = '2rem';
+        }
+
+        listItem.appendChild(link);
+        toc.appendChild(listItem);
+      });
+
+      tocContent.appendChild(toc);
+    } else {
+      // Hide TOC if not enough headings
+      document.querySelector('.toc').style.display = 'none';
+    }
+  }
+
+  // Highlight comment if it's in the URL hash
+  if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+    const commentElement = document.querySelector(window.location.hash);
+    if (commentElement) {
+      commentElement.classList.add('highlight-comment');
+    }
+  }
 });
 </script>
 {% endif %}

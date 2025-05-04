@@ -1,10 +1,10 @@
 import secrets
 from datetime import date, datetime
 from time import timezone
-from tkinter import Image
+from PIL import Image
 #from flask_wtf.csrf import csrf_token
 
-from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request
+from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request, jsonify
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
 #from flask_gravatar import Gravatar
@@ -247,6 +247,22 @@ print("Resolved DB Path:", db_path)
 
 db.init_app(app)
 
+class Tag(db.Model):
+    __tablename__ = "tags"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    # Relationship
+   # posts = db.relationship('BlogPost', secondary=post_tags, backref=db.backref('tags', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<Tag {self.name}>'
+
+# Many-to-many relationship between posts and tags
+post_tags = db.Table('post_tags',
+                     db.Column('post_id', db.Integer, db.ForeignKey('blog_posts.id'), primary_key=True),
+                     db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+                     )
 
 # CONFIGURE TABLES
 class BlogPost(db.Model):
@@ -266,6 +282,12 @@ class BlogPost(db.Model):
 
     #Updating to include like relationship 4
     likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
+
+    # Relationship to tags
+    tags = db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+
+
+
 
     # add a propriety to count likes 5
     @property
@@ -327,6 +349,9 @@ class Comment(db.Model):
     replies = relationship("Comment", back_populates="parent", remote_side=[id], cascade="all, delete-orphan", single_parent=True)
     parent = relationship("Comment", back_populates="replies", remote_side=[parent_id])
     created_at = db.Column(db.DateTime, default=lambda:datetime.now(timezone.utc))
+
+    edited = db.Column(db.Boolean, default=False)
+    edited_at = db.Column(db.DateTime)
 
 ####################For like ###################### 1
 # Add this to your models section (after the Comment class)
@@ -693,9 +718,14 @@ def get_all_posts():
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
+    #po_st = BlogPost.query.get_or_404(post_id)
+
     # Add the CommentForm to the route
     comment_form = CommentForm()
     reply_form = ReplyForm()
+
+   #Calculate reading time
+    reading_time = calculate_reading_time(requested_post.body)
 
     has_liked = False
     if current_user.is_authenticated:
@@ -751,6 +781,8 @@ def show_post(post_id):
                            form=comment_form,
                            reply_form=reply_form,
                            has_liked = has_liked,
+                          # po_st=po_st,
+                           reading_time=reading_time,
                           # has_liked_post=has_liked_post,
                            get_gravatar_url=get_gravatar_url
                            )
@@ -878,6 +910,73 @@ def delete_post(post_id):
     db.session.delete(post_to_delete)
     db.session.commit()
     return redirect(url_for('get_all_posts'))
+
+
+@app.route('/comment/<int:comment_id>/edit', methods=['POST'])
+@login_required
+def edit_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+
+    # Check if user is authorized to edit this comment
+    if comment.author != current_user.id and current_user.id != 1:  # User is not author or admin
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Get data from request
+    data = request.get_json()
+    text = data.get('text', '').strip()
+
+    if not text:
+        return jsonify({'error': 'Comment cannot be empty'}), 400
+
+    # Update comment
+    comment.text = text
+    comment.edited = True
+    comment.edited_at = datetime.now()
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'text': text,
+        'edited_at': comment.edited_at.strftime('%B %d, %Y at %H:%M')
+    })
+
+
+@app.route('/comment/<int:comment_id>/delete', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+
+    # Check if user is authorized to delete this comment
+    if comment.author != current_user.id and current_user.id != 1:  # User is not author or admin
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Delete comment
+    db.session.delete(comment)
+    db.session.commit()
+
+    return jsonify({'success': True})
+
+
+# If you want to implement tags, you'll need a route for them too
+@app.route('/tag/<tag_name>')
+def tag(tag_name):
+    tag = Tag.query.filter_by(name=tag_name).first_or_404()
+    posts = tag.posts.order_by(BlogPost.date.desc()).all()
+
+    return render_template('tag.html', tag=tag, posts=posts)
+
+
+# For reading time, add this to your post route:
+def calculate_reading_time(content):
+    # Average reading speed: 200 words per minute
+    word_count = len(content.split())
+    minutes = max(1, round(word_count / 200))
+    return minutes
+
+
+
+
 
 
 @app.route("/about")

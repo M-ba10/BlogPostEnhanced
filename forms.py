@@ -1,8 +1,11 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, PasswordField, validators
+from wtforms.fields.simple import TextAreaField
 from wtforms.validators import DataRequired, URL, Email, EqualTo
 from flask_ckeditor import CKEditorField
 from flask_wtf.file import FileField, FileAllowed
+from flask_babel import Babel, _
+
 
 # WTForm for creating a blog post
 class CreatePostForm(FlaskForm):
@@ -63,3 +66,7 @@ class UpdateAccountForm(FlaskForm):
     ])
     confirm_password = PasswordField('Confirm New Password')
     submit = SubmitField('Update Account')
+
+class ReplyForm(FlaskForm):
+    reply_text = TextAreaField(_('Your Reply'), validators=[DataRequired()])
+    submit = SubmitField(_('Post Reply'))

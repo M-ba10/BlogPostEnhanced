@@ -1,6 +1,8 @@
 import secrets
-from datetime import date
+from datetime import date, datetime
+from time import timezone
 from tkinter import Image
+#from flask_wtf.csrf import csrf_token
 
 from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request
 from flask_bootstrap import Bootstrap5
@@ -15,7 +17,8 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 # Import your forms from the forms.py
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm, UpdateAccountForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm, \
+    UpdateAccountForm, ReplyForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_migrate import Migrate
 from flask_babel import Babel, _
@@ -261,6 +264,15 @@ class BlogPost(db.Model):
     # Parent relationship to the comments
     comments = relationship("Comment", back_populates="parent_post")
 
+    #Updating to include like relationship 4
+    likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
+
+    # add a propriety to count likes 5
+    @property
+    def like_count(self):
+        return db.session.query(Like).filter_by(post_id=self.id).count()
+
+
 
 # Create a User table for all your registered users
 class User(UserMixin, db.Model):
@@ -275,13 +287,25 @@ class User(UserMixin, db.Model):
     receive_notifications = db.Column(db.Boolean, default=True) 
     # For profile images to Do
     profile_image = db.Column(db.String(250), nullable=True)
-    
+
+    # for reply notification
+    receive_reply_notifications = db.Column(db.Boolean, default=True)
     
     # This will act like a list of BlogPost objects attached to each User.
     # The "author" refers to the author property in the BlogPost class.
     posts = relationship("BlogPost", back_populates="author")
     # Parent relationship: "comment_author" refers to the comment_author property in the Comment class.
     comments = relationship("Comment", back_populates="comment_author")
+
+    # added to include like relationship 2
+    likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
+
+
+
+
+    # method for checking whether the user has liked the post 3
+    def has_liked_post(self, post_id):
+        return Like.query.filter_by(user_id=self.id, post_id=post_id).first() is not None
 
 
 
@@ -297,6 +321,33 @@ class Comment(db.Model):
     # Child Relationship to the BlogPosts
     post_id: Mapped[str] = mapped_column(Integer, db.ForeignKey("blog_posts.id"))
     parent_post = relationship("BlogPost", back_populates="comments")
+
+    #  for reply functionality
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True)
+    replies = relationship("Comment", back_populates="parent", remote_side=[id], cascade="all, delete-orphan", single_parent=True)
+    parent = relationship("Comment", back_populates="replies", remote_side=[parent_id])
+    created_at = db.Column(db.DateTime, default=lambda:datetime.now(timezone.utc))
+
+####################For like ###################### 1
+# Add this to your models section (after the Comment class)
+class Like(db.Model):
+    __tablename__ = "likes"
+    id = db.Column(Integer, primary_key=True)
+
+    # Who liked
+    user_id = db.Column(Integer, db.ForeignKey("users.id"), nullable=False)
+    user = relationship("User", back_populates="likes")
+
+    # What was liked (post)
+    post_id = db.Column(Integer, db.ForeignKey("blog_posts.id"), nullable=False)
+    post = relationship("BlogPost", back_populates="likes")
+
+    # When it was liked
+    timestamp = db.Column(db.DateTime, default=lambda:datetime.now(timezone.utc))
+
+    # Make sure a user can only like a post once (unique constraint)
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)
+
 
 
 # Create the database tables
@@ -355,6 +406,81 @@ def send_new_post_notification(post):
     except Exception as e:
         app.logger.error(f"Notification system error: {str(e)}")
         raise  # Re-raise if you want to see it in console
+
+
+# send like notification 6
+# Add this function to handle like notifications
+def send_like_notification(post, liker):
+    """Send email notification to post author when someone likes their post"""
+    try:
+        app.logger.info(f"Sending like notification for post: {post.title}")
+
+        # Only notify the author if they want notifications and aren't the one liking
+        if post.author.id != liker.id and post.author.receive_notifications:
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                    server.starttls()
+                    server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+
+                    # Create the notification message
+                    msg = MIMEText(
+                        f"Hello {post.author.name},\n\n"
+                        f"{liker.name} liked your post: {post.title}\n"
+                        f"View it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                        f"To manage notifications: {url_for('notification_preferences', _external=True)}",
+                        'plain'
+                    )
+                    msg['Subject'] = f"{liker.name} liked your post: {post.title}"
+                    msg['From'] = app.config['EMAIL_USER']
+                    msg['To'] = post.author.email
+
+                    server.send_message(msg)
+                    app.logger.info(f"Like notification sent to {post.author.email}")
+
+            except Exception as e:
+                app.logger.error(f"Failed to send like notification to {post.author.email}: {str(e)}")
+
+    except Exception as e:
+        app.logger.error(f"Like notification system error: {str(e)}")
+
+
+# for reply notifications
+
+def send_reply_notification(reply, parent_comment):
+    """Send email notification when someone replies to a comment"""
+    try:
+        if (parent_comment.comment_author.receive_reply_notifications and
+                parent_comment.comment_author.id != reply.comment_author.id):
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+
+                msg = MIMEText(
+                    _("Hello %(name)s,\n\n"
+                      "%(reply_author)s replied to your comment on the post: %(post_title)s\n\n"
+                      "Your comment: %(comment_text)s\n"
+                      "Reply: %(reply_text)s\n\n"
+                      "View the conversation: %(post_url)s\n\n"
+                      "To manage notifications: %(prefs_url)s") % {
+                        'name': parent_comment.comment_author.name,
+                        'reply_author': reply.comment_author.name,
+                        'post_title': reply.parent_post.title,
+                        'comment_text': parent_comment.text[:100] + ('...' if len(parent_comment.text) > 100 else ''),
+                        'reply_text': reply.text[:100] + ('...' if len(reply.text) > 100 else ''),
+                        'post_url': url_for('show_post', post_id=reply.parent_post.id, _external=True),
+                        'prefs_url': url_for('notification_preferences', _external=True)
+                    },
+                    'plain'
+                )
+                msg['Subject'] = _("New reply to your comment on %(title)s") % {'title': reply.parent_post.title}
+                msg['From'] = app.config['EMAIL_USER']
+                msg['To'] = parent_comment.comment_author.email
+
+                server.send_message(msg)
+                app.logger.info(f"Reply notification sent to {parent_comment.comment_author.email}")
+
+    except Exception as e:
+        app.logger.error(f"Failed to send reply notification: {str(e)}")
 
 #🧾 Add a Search Route in Flask
 @app.route("/search", methods=["GET"])
@@ -569,6 +695,14 @@ def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
     # Add the CommentForm to the route
     comment_form = CommentForm()
+    reply_form = ReplyForm()
+
+    has_liked = False
+    if current_user.is_authenticated:
+        # check if user has liked the post and it is not their own post
+        has_liked = current_user.has_liked_post(post_id)
+       # has_liked = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
+
     # Only allow logged-in users to comment on posts
     if comment_form.validate_on_submit():
         if not current_user.is_authenticated:
@@ -582,7 +716,44 @@ def show_post(post_id):
         )
         db.session.add(new_comment)
         db.session.commit()
-    return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form, get_gravatar_url=get_gravatar_url)
+        return redirect(url_for('show_post', post_id=post_id))
+
+    # Handle replies
+    if reply_form.validate_on_submit():
+        if not current_user.is_authenticated:
+            flash(_("You need to login to reply."))
+            return redirect(url_for("login"))
+
+        parent_comment_id = request.form.get('parent_comment_id')
+        parent_comment = Comment.query.get_or_404(parent_comment_id)
+
+        new_reply = Comment(
+            text=reply_form.reply_text.data,
+            comment_author=current_user,
+            parent_post=requested_post,
+            parent_id=parent_comment_id
+        )
+        db.session.add(new_reply)
+        db.session.commit()
+
+        # Send notification in background
+        from threading import Thread
+        Thread(target=send_reply_notification, args=(new_reply, parent_comment)).start()
+
+        flash(_("Your reply has been posted!"))
+        return redirect(url_for('show_post',
+                                post_id=post_id) + f'#comment-{parent_comment_id}'
+                        )
+
+    return render_template("post.html",
+                           post=requested_post,
+                           current_user=current_user,
+                           form=comment_form,
+                           reply_form=reply_form,
+                           has_liked = has_liked,
+                          # has_liked_post=has_liked_post,
+                           get_gravatar_url=get_gravatar_url
+                           )
 
 
 # Use a decorator so only an admin user can create new posts
@@ -616,21 +787,60 @@ def add_new_post():
         flash(_("New post created successfully and notifications sent!"))
         # Redirect to the main page
         return redirect(url_for("get_all_posts"))
-    return render_template("make-post.html", form=form, current_user=current_user)
+    return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 # Add notification preference to the user profile
 @app.route("/notification_preferences", methods=["GET", "POST"])
 @login_required
 def notification_preferences():
     if request.method == "POST":
-        # Convert checkbox value to boolean
-        current_user.receive_notifications = request.form.get('notify') == 'on'
+        current_user.receive_notifications = 'notify' in request.form
+        current_user.receive_reply_notifications = 'reply_notify' in request.form
         db.session.commit()
-        
-        flash(_("Notification preferences updated!"))
-        return redirect(url_for("notification_preferences"))
-    
-    return render_template("notification_preferences.html", get_gravatar_url=get_gravatar_url)
+        flash(_("Your notification preferences have been updated!"))
+        return redirect(url_for('notification_preferences'))
+
+    return render_template("notification_preferences.html",
+                           get_gravatar_url=get_gravatar_url)
+
+
+
+# rout for like notifications 7
+@app.route("/like/<int:post_id>", methods=["POST"])
+@login_required
+def like_post(post_id):
+    post = db.get_or_404(BlogPost, post_id)
+    app.logger.info(f"Like route called for post {post_id} by user {current_user.id}")
+
+    message = "You can not like your own post"
+    if current_user.id == post.author_id:
+        return {"status": "error", "message": message}
+
+    # Check if user already liked this post
+    existing_like = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first()
+
+    if existing_like:
+        # User already liked this post, so unlike it
+        app.logger.info(f"User {current_user.id} unliking post {post_id}")
+        db.session.delete(existing_like)
+        db.session.commit()
+        like_count = Like.query.filter_by(post_id=post_id).count()
+        app.logger.info(f"New like count for post {post_id}: {like_count}")
+        return {"status": "unliked", "likes": like_count}
+    else:
+        # User hasn't liked this post yet, so like it
+        app.logger.info(f"User {current_user.id} liking post {post_id}")
+        new_like = Like(user_id=current_user.id, post_id=post_id)
+        db.session.add(new_like)
+        db.session.commit()
+        like_count = Like.query.filter_by(post_id=post_id).count()
+        app.logger.info(f"New like count for post {post_id}: {like_count}")
+
+        # Notify post author of the like using threading
+        from threading import Thread
+        Thread(target=send_like_notification, args=(post, current_user)).start()
+
+        return {"status": "liked", "likes": like_count}
 
 
 # Use a decorator so only an admin user can edit a post
@@ -653,7 +863,11 @@ def edit_post(post_id):
         post.body = edit_form.body.data
         db.session.commit()
         return redirect(url_for("show_post", post_id=post.id))
-    return render_template("make-post.html", form=edit_form, is_edit=True, current_user=current_user)
+    return render_template("make-post.html",
+                           form=edit_form,
+                           is_edit=True,
+                           current_user=current_user,
+                           get_gravatar_url=get_gravatar_url)
 
 
 # Use a decorator so only an admin user can delete a post

@@ -2,7 +2,7 @@
 {% include "header.html" %}
 
 <!-- Page Header-->
-<header class="masthead" style="background-image: url('{{post.img_url}}')">
+<header class="masthead rounded-bottom-4 rounded-top-4" style="background-image: url('{{post.img_url}}')">
   <div class="container position-relative px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
@@ -32,6 +32,28 @@
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
         {{ post.body|safe }}
+
+        <!--section for like and dislike -->
+        <div class="likes-section mb-4">
+          <hr>
+          <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated and current_user.id != post.author.id %}
+              <button id="likeButton" class="btn {% if has_liked %}btn-danger{% else %}btn-outline-danger{% endif %} me-2"
+                      data-post-id="{{ post.id }}">
+                <i class="fas fa-heart"></i>
+                <span id="likeText">{{ _("Unlike") if has_liked else _("Like") }}</span>
+              </button>
+            {% elif not current_user.is_authenticated %}
+              <a href="{{ url_for('login') }}" class="btn btn-outline-danger me-2">
+                <i class="fas fa-heart"></i> {{ _("Like") }}
+              </a>
+            {% endif %}
+            <span id="likeCount" class="fw-bold">{{ post.like_count }}</span> {{ _("likes") }}
+          </div>
+          <hr>
+        </div>
+
+
         <!--Only show Edit Post button if user id is 1 (admin user) -->
         {% if current_user.id == 1 %}
         <div class="d-flex justify-content-end mb-4">
@@ -44,33 +66,173 @@
         {% endif %}
 
         <!-- Comments Area -->
+
         <!-- Load the CKEditor -->
         {{ ckeditor.load() }}
-        <!-- Configure it with the name of the form field from CommentForm -->
         {{ ckeditor.config(name='comment_text') }}
-        <!-- Create the wtf quick form from CommentForm -->
         {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
-        <div class="comment">
-          <ul class="commentList">
-            <!-- Show all comments -->
-            {% for comment in post.comments: %}
-            <li>
-              <div class="commenterImage">
-                <img src="{{ get_gravatar_url(comment.comment_author.email) }}" width="50" height="50" />
 
-              </div>
-              <div class="commentText">
-                {{comment.text|safe}}
-                <span class="sub-text">{{comment.comment_author.name}}</span>
-              </div>
-            </li>
+        <div class="comments mt-5">
+          <h3>{{ _("Comments") }}</h3>
+
+          <!-- : if not comment.parent_id  -->
+          {% for comment in post.comments %}
+              <div class="comment mb-4" id="comment-{{comment.id}}">
+                  <div class="d-flex">
+                      <div class="flex-shrink-0">
+                          <img src="{{ get_gravatar_url(comment.comment_author.email, 50) }}"
+                               class="rounded-circle" width="50" height="50" alt="{{comment.comment_author.name}}">
+                      </div>
+                      <div class="flex-grow-1 ms-3">
+                          <div class="d-flex justify-content-between align-items-center">
+                              <h5 class="mt-0 mb-1">{{comment.comment_author.name}}</h5>
+                              <small class="text-muted">{{comment.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
+                          </div>
+                          <div class="comment-content mb-2">
+                              {{comment.text|safe}}
+                          </div>
+
+                          <!-- Reply button -->
+                          {% if current_user.is_authenticated %}
+                          <button class="btn btn-sm btn-outline-secondary reply-btn"
+                                  data-comment-id="{{comment.id}}">
+                              {{ _("Reply") }}
+                          </button>
+                          {% endif %}
+
+                          <!-- Reply form (hidden initially) -->
+                          <div class="reply-form mt-3" id="reply-form-{{comment.id}}" style="display:none;">
+                              {{ render_form(reply_form, novalidate=True, button_map={"submit": "primary"}) }}
+                              <input type="hidden" name="parent_comment_id" value="{{comment.id}}">
+                          </div>
+
+                          <!-- Replies to this comment -->
+                          <div class="replies mt-3 ms-4 ps-3 border-start">
+                              {% for reply in comment.replies|sort(attribute='created_at') %}
+                                  <div class="reply mb-3" id="comment-{{reply.id}}">
+                                      <div class="d-flex">
+                                          <div class="flex-shrink-0">
+                                              <img src="{{ get_gravatar_url(reply.comment_author.email, 40) }}"
+                                                   class="rounded-circle" width="40" height="40" alt="{{reply.comment_author.name}}">
+                                          </div>
+                                          <div class="flex-grow-1 ms-3">
+                                              <div class="d-flex justify-content-between align-items-center">
+                                                  <h6 class="mt-0 mb-1">{{reply.comment_author.name}}</h6>
+                                                  <small class="text-muted">{{reply.created_at.strftime('%B %d, %Y at %H:%M')}}</small>
+                                              </div>
+                                              <div class="reply-content">
+                                                  {{reply.text|safe}}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  </div>
+                              {% endfor %}
+                          </div>
+                      </div>
+                      </div>
+                  </div>
+              {% else %}
+                  <p class="text-muted">{{ _("No comments yet. Be the first to comment!") }}</p>
             {% endfor %}
-          </ul>
+          </div>
 
-        </div>
+
       </div>
     </div>
   </div>
 </article>
+
+<!-- Add for like footer.html -->
+{% if current_user.is_authenticated %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+  const likeButton = document.getElementById('likeButton');
+  if (likeButton) {
+    likeButton.addEventListener('click', function() {
+      const postId = this.getAttribute('data-post-id');
+      console.log('Like button clicked for post:', postId); // Debug logging
+
+      fetch(/like/${postId}, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': '{{ csrf_token() if csrf_token else "" }}'
+        },
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        if (!response.ok) {
+          console.error('Response not OK:', response.status);
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log('Response data:', data);
+
+        const likeCount = document.getElementById('likeCount');
+        const likeText = document.getElementById('likeText');
+
+        if (likeCount) {
+          likeCount.textContent = data.likes;
+        } else {
+          console.error('likeCount element not found');
+        }
+
+        // Update button appearance based on status
+        if (data.status === 'liked') {
+          likeButton.classList.remove('btn-outline-danger');
+          likeButton.classList.add('btn-danger');
+          if (likeText) {
+            likeText.textContent = '{{ _("Unlike") }}';
+          }
+        } else {
+          likeButton.classList.remove('btn-danger');
+          likeButton.classList.add('btn-outline-danger');
+          if (likeText) {
+            likeText.textContent = '{{ _("Like") }}';
+          }
+        }
+      })
+      .catch(error => console.error('Error:', error));
+    });
+  } else {
+    console.error('Like button element not found');
+  }
+});
+
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Handle reply button clicks
+    document.querySelectorAll('.reply-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const commentId = this.getAttribute('data-comment-id');
+            const form = document.getElementById(reply-form-${commentId});
+
+            // Toggle form visibility
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+                this.textContent = '{{ _("Cancel") }}';
+                // Smooth scroll to the form
+                form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            } else {
+                form.style.display = 'none';
+                this.textContent = '{{ _("Reply") }}';
+            }
+        });
+    });
+
+    // If URL has a comment hash, scroll to it
+    if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+        const commentElement = document.querySelector(window.location.hash);
+        if (commentElement) {
+            setTimeout(() => {
+                commentElement.scrollIntoView({ behavior: 'smooth' });
+            }, 300);
+        }
+    }
+});
+</script>
+{% endif %}
 
 {% include "footer.html" %}

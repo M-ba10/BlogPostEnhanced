@@ -70,3 +70,11 @@ class UpdateAccountForm(FlaskForm):
 class ReplyForm(FlaskForm):
     reply_text = TextAreaField(_('Your Reply'), validators=[DataRequired()])
     submit = SubmitField(_('Post Reply'))
+
+# for contact
+class ContactForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    phone = StringField('Phone')
+    message = TextAreaField('Message', validators=[DataRequired()])
+    submit = SubmitField('Talk to me')

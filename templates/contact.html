@@ -9,17 +9,28 @@
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
         <div class="page-heading">
-          {% if msg_sent: %}
-          <h1>{{ _("Successfully sent your message") }}</h1>
-          {% else: %}
           <h1>{{ _("Contact Me") }}</h1>
-          {% endif %}
           <span class="subheading">{{ _("Have questions? I have answers") }}.</span>
         </div>
       </div>
     </div>
   </div>
 </header>
+
+<!-- Flash messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="container mt-4">
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
 <!-- Main Content-->
 <main class="mb-4">
   <div class="container px-4 px-lg-5">
@@ -31,67 +42,35 @@
           ") }}
         </p>
         <div class="my-5">
-          <!-- * * * * * * * * * * * * * * *-->
-          <!-- * * Simplified SB Contact Form for the Tutorial* *-->
-          <form
-            id="contactForm"
-            name="sentMessage"
-            action="{{ url_for('contact') }}"
-            method="post"
-          >
-            <div class="form-floating">
-              <input
-                class="form-control"
-                id="name"
-                name="name"
-                type="text"
-                placeholder={{ _("Enter your name...") }}
-                required
-              />
+          <!-- * * * * * * * form for contact * * * * * * * *-->
+          <form method="post" action="{{ url_for('contact') }}">
+            {{ form.hidden_tag() }}  <!-- This includes the CSRF token -->
+
+            <div class="form-floating mb-3">
+              {{ form.name(class="form-control", placeholder="Name") }}
               <label for="name">{{ _("Name") }}</label>
             </div>
-            <div class="form-floating">
-              <input
-                class="form-control"
-                id="email"
-                name="email"
-                type="email"
-                placeholder={{ _("Enter your email...") }}
-                required
-              />
+
+            <div class="form-floating mb-3">
+              {{ form.email(class="form-control", placeholder="Email") }}
               <label for="email">{{ _("Email address") }}</label>
             </div>
-            <div class="form-floating">
-              <input
-                class="form-control"
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder={{ _("Enter your phone number...") }}
-                required
-              />
+
+            <div class="form-floating mb-3">
+              {{ form.phone(class="form-control", placeholder="Phone") }}
               <label for="phone">{{ _("Phone Number") }}</label>
             </div>
-            <div class="form-floating">
-              <textarea
-                class="form-control"
-                id="message"
-                name="message"
-                placeholder={{ _("Enter your message here...") }}
-                required
-                style="height: 12rem"
-              ></textarea>
+
+            <div class="form-floating mb-3">
+              {{ form.message(class="form-control", placeholder="Message", style="height: 12rem") }}
               <label for="message">{{ _("Message") }}</label>
             </div>
-            <br />
-            <button
-              class="btn btn-danger text-uppercase"
-              id="submitButton"
-              type="submit"
-            >
-            {{ _("Talk to me") }}
-            </button>
+
+            <div class="mb-3">
+              {{ form.submit(class="btn btn-danger text-uppercase") }}
+            </div>
           </form>
+
         </div>
       </div>
     </div>

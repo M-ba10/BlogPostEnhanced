@@ -36,6 +36,7 @@
              src="{{ url_for('static', filename='profile_pics/' + post.author.profile_image)
               if post.author.profile_image
               else get_gravatar_url(post.author.email, 65) }}"
+              style="width: 80px; height: 80px; object-fit: cover;"
            >
           <span class="meta"
             >Posted by

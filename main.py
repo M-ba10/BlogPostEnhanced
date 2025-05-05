@@ -1,5 +1,6 @@
 import secrets
 from datetime import date, datetime
+from email.message import EmailMessage
 from time import timezone
 from PIL import Image
 #from flask_wtf.csrf import csrf_token
@@ -23,7 +24,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
 # Import your forms from the forms.py
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm, \
-    UpdateAccountForm, ReplyForm
+    UpdateAccountForm, ReplyForm, ContactForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from flask_migrate import Migrate
 from flask_babel import Babel, _
@@ -633,7 +634,7 @@ def confirm_email(token):
     else:
         user.confirmed = True
         db.session.commit()
-        flash(_('Your account has been confirmed!', 'success'))
+        flash(_('Your account has been confirmed!'))
     return redirect(url_for('login'))
 
 
@@ -662,7 +663,7 @@ def login():
             login_user(user)
             return redirect(url_for('get_all_posts'))
 
-    return render_template("login.html", form=form, current_user=current_user)
+    return render_template("login.html", form=form, current_user=current_user,get_gravatar_url=get_gravatar_url)
 
 
  # 2. Route: Show Reset Request Page & Send Email
@@ -1051,19 +1052,52 @@ def calculate_reading_time(content):
     minutes = max(1, round(word_count / 200))
     return minutes
 
+# for contact
+def send_email(name, email, phone, message):
+    msg = EmailMessage()
+    msg['Subject'] = 'New Contact Message from Blog'
+    msg['From'] = app.config['EMAIL_USER']
+    msg['To'] = app.config['EMAIL_USER']
+    msg['Reply-To'] = email # user that sent the mail
 
+    msg.set_content(f"""
+    You received a new message from your website contact form:
 
+    Name: {name}
+    Email: {email}
+    Phone: {phone}
+    Message:
+    {message}
+    """)
 
-
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        #smtp.starttls()
+        smtp.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+        smtp.send_message(msg)
 
 @app.route("/about")
 def about():
     return render_template("about.html", current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
-@app.route("/contact")
+@app.route("/contact", methods=["GET", "POST"])
 def contact():
-    return render_template("contact.html", current_user=current_user, get_gravatar_url=get_gravatar_url)
+    form = ContactForm()
+    if form.validate_on_submit():
+        name = form.name.data
+        email = form.email.data
+        phone = form.phone.data
+        message = form.message.data
+
+        send_email(name, email, phone, message)
+        flash("Message sent successfully!", "success")
+
+        # Redirect to clear the form and avoid resubmission on reload
+        return redirect(url_for("contact"))
+
+        #return render_template("contact.html", form=form, msg_sent=True, get_gravatar_url=get_gravatar_url)
+
+    return render_template("contact.html",form=form, current_user=current_user, msg_sent=True, get_gravatar_url=get_gravatar_url)
 
 
 if __name__ == "__main__":

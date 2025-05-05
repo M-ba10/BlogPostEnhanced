@@ -4,8 +4,7 @@ from wtforms.fields.simple import TextAreaField
 from wtforms.validators import DataRequired, URL, Email, EqualTo
 from flask_ckeditor import CKEditorField
 from flask_wtf.file import FileField, FileAllowed
-from flask_babel import Babel, _
-
+from flask_babel import Babel,_
 
 # WTForm for creating a blog post
 class CreatePostForm(FlaskForm):

@@ -10982,3 +10982,8 @@ body {
 .tag-size-3 { font-size: 1.2em; }
 .tag-size-4 { font-size: 1.4em; }
 .tag-size-5 { font-size: 1.6em; }
+
+.ck-editor__editable {
+    min-height: 200px;
+    margin-bottom: 1rem;
+}

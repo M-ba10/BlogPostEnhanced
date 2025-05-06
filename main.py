@@ -1,7 +1,7 @@
 import secrets
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from email.message import EmailMessage
-from time import timezone
+#from time import timezone
 from PIL import Image
 #from flask_wtf.csrf import csrf_token
 from flask_wtf.csrf import CSRFProtect
@@ -11,7 +11,9 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request, jsonify
+
 from flask_bootstrap import Bootstrap5
+
 from flask_ckeditor import CKEditor
 #from flask_gravatar import Gravatar
 import hashlib
@@ -90,12 +92,19 @@ app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
 app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png'}
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB max
 
+
+# Disable old CKEditor CDN injection
+app.config['CKEDITOR_SERVE_LOCAL'] = False
+# Optional: set the CKEditor type (standard, full, basic)
+app.config['CKEDITOR_PKG_TYPE'] = 'standard'
 ckeditor = CKEditor(app)
-Bootstrap5(app)
+
+bootstrap = Bootstrap5(app)
 
 # Configure Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
+
 
 
 def allowed_file(filename):
@@ -781,8 +790,10 @@ def show_post(post_id):
         db.session.commit()
 
         # Send notification in background
-        from threading import Thread
-        Thread(target=send_reply_notification, args=(new_reply, parent_comment)).start()
+        #from threading import Thread
+        #Thread(target=send_reply_notification, args=(new_reply, parent_comment)).start()
+
+        send_reply_notification(new_reply, parent_comment)
 
         flash(_("Your reply has been posted!"))
         return redirect(url_for('show_post',
@@ -925,7 +936,7 @@ def delete_post(post_id):
     db.session.commit()
     return redirect(url_for('get_all_posts'))
 
-
+# edit comment
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 @login_required
 def edit_comment(comment_id):
@@ -938,15 +949,13 @@ def edit_comment(comment_id):
     # Get data from request
     data = request.get_json()
     text = data.get('text', '').strip()
-
     if not text:
         return jsonify({'error': 'Comment cannot be empty'}), 400
 
     # Update comment
     comment.text = text
     comment.edited = True
-    comment.edited_at = datetime.now()
-
+    comment.edited_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({
@@ -955,7 +964,7 @@ def edit_comment(comment_id):
         'edited_at': comment.edited_at.strftime('%B %d, %Y at %H:%M')
     })
 
-
+# delete comment
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required
 def delete_comment(comment_id):
@@ -970,6 +979,41 @@ def delete_comment(comment_id):
     db.session.commit()
 
     return jsonify({'success': True})
+
+# reply comment
+@app.route('/post/<int:post_id>/reply', methods=['POST'])
+@login_required
+def reply_comment(post_id):
+    if request.method == 'POST':
+        # Get form data
+        comment_text = request.form.get('reply_text')
+        parent_comment_id = request.form.get('parent_comment_id')
+
+        # Validate required fields
+        if not comment_text:
+            flash('Reply text cannot be empty', 'danger')
+            return redirect(url_for('show_post', post_id=post_id))
+
+        # Create new comment
+        new_comment = Comment(
+            text=comment_text,
+            post_id=post_id,
+            author_id=current_user.id,
+            parent_id=parent_comment_id
+        )
+
+        db.session.add(new_comment)
+        db.session.commit()
+
+        # Get parent comment for notification
+        parent_comment = Comment.query.get(parent_comment_id)
+        if parent_comment:
+            send_reply_notification(new_comment, parent_comment)
+
+        flash('Your reply has been posted!', 'success')
+        return redirect(url_for('show_post', post_id=post_id))
+
+
 
 
 # If you want to implement tags, you'll need a route for them too

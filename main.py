@@ -39,27 +39,26 @@ from dotenv import load_dotenv
 
 # Load environment variables from the .env file
 load_dotenv()
-print("DB URI from .env:", os.getenv("DB_URI"))
 
 
-'''
-Make sure the required packages are installed: 
-Open the Terminal in PyCharm (bottom left). 
 
-On Windows type:
-python -m pip install -r requirements.txt
-
-On MacOS type:
-pip3 install -r requirements.txt
-
-This will install the packages from the requirements.txt for this project.
-'''
 
 secret_key = os.getenv('FLASK_KEY')
 #print(f'Secret Key Loaded: {secret_key}')
 #db_uri = os.getenv('DB_URI')
 
 app = Flask(__name__)
+
+if os.environ.get('FLASK_ENV') == "development":
+    # Local development - use Sqlite from .env
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DB_URI', 'sqlite:///instance/posts.db')
+    print("DB URI from .env:", os.getenv("DB_URI"))
+
+else:
+    # for Deployment- use PostgreSQL from render's database
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')
+
+
 
 app.config['SECRET_KEY'] = secret_key
 

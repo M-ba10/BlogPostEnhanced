@@ -59,22 +59,19 @@ else:
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')
 '''
 
-def get_database_uri():
-    # Force PostgreSQL if running on Render
-    if 'RENDER' in os.environ:
-        return os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+# 1. EXPLICITLY detect Render's environment
+is_render = 'RENDER' in os.environ or 'DATABASE_URL' in os.environ
 
-    # Force PostgreSQL if DATABASE_URL exists (even in development)
-    if 'DATABASE_URL' in os.environ:
-        return os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+# 2. FORCE PostgreSQL if on Render
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+    if is_render
+    else 'sqlite:///instance/posts.db'  # Local dev only
+)
 
-    # Default to SQLite only in local development
-    return os.getenv('DB_URI', 'sqlite:///instance/posts.db')
-
-
-app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
-print(f"Active DB: {app.config['SQLALCHEMY_DATABASE_URI']}")  # Verify in logs
-
+# 3. VERIFY in logs (check Render's logs for this)
+print(f"🔷 Active Database: {'PostgreSQL' if is_render else 'SQLite'}")
+print(f"🔷 DB URI: {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[0]}...")  # Hide password
 
 
 app.config['SECRET_KEY'] = secret_key

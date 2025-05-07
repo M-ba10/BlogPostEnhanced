@@ -49,7 +49,7 @@ secret_key = os.getenv('FLASK_KEY')
 
 app = Flask(__name__)
 
-if os.environ.get('FLASK_ENV') == "development":
+'''if os.environ.get('FLASK_ENV') == "development":
     # Local development - use Sqlite from .env
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DB_URI', 'sqlite:///instance/posts.db')
     print("DB URI from .env:", os.getenv("DB_URI"))
@@ -57,6 +57,23 @@ if os.environ.get('FLASK_ENV') == "development":
 else:
     # for Deployment- use PostgreSQL from render's database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')
+'''
+
+def get_database_uri():
+    # Force PostgreSQL if running on Render
+    if 'RENDER' in os.environ:
+        return os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+
+    # Force PostgreSQL if DATABASE_URL exists (even in development)
+    if 'DATABASE_URL' in os.environ:
+        return os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
+
+    # Default to SQLite only in local development
+    return os.getenv('DB_URI', 'sqlite:///instance/posts.db')
+
+
+app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
+print(f"Active DB: {app.config['SQLALCHEMY_DATABASE_URI']}")  # Verify in logs
 
 
 

@@ -741,11 +741,18 @@ def get_all_posts():
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
-    #po_st = BlogPost.query.get_or_404(post_id)
 
     # Add the CommentForm to the route
     comment_form = CommentForm()
     reply_form = ReplyForm()
+
+    # User cannot comment on their own post on ly they can reply
+    is_author = current_user.is_authenticated and current_user.id == requested_post.author_id
+    if comment_form.validate_on_submit():
+        if is_author:
+            flash(_("As the post author,  you can only reply to existing comment", "warning"))
+            return redirect(url_for('show_post', post_id=post_id))
+
 
    #Calculate reading time
     reading_time = calculate_reading_time(requested_post.body)
@@ -756,7 +763,7 @@ def show_post(post_id):
         has_liked = current_user.has_liked_post(post_id)
        # has_liked = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
 
-    # Only allow logged-in users to comment on posts
+    ############################# Only allow logged-in users to comment on posts ##############
     if comment_form.validate_on_submit():
         if not current_user.is_authenticated:
             flash(_("You need to login or register to comment."))
@@ -771,12 +778,14 @@ def show_post(post_id):
         db.session.commit()
         return redirect(url_for('show_post', post_id=post_id))
 
-    # Handle replies
+
+    ################## Handle replies ############################
     if reply_form.validate_on_submit():
         if not current_user.is_authenticated:
             flash(_("You need to login to reply."))
             return redirect(url_for("login"))
 
+        # To  allow reply regardless to ownership
         parent_comment_id = request.form.get('parent_comment_id')
         parent_comment = Comment.query.get_or_404(parent_comment_id)
 
@@ -788,6 +797,7 @@ def show_post(post_id):
         )
         db.session.add(new_reply)
         db.session.commit()
+
 
         # Send notification in background
         #from threading import Thread
@@ -806,9 +816,8 @@ def show_post(post_id):
                            form=comment_form,
                            reply_form=reply_form,
                            has_liked = has_liked,
-                          # po_st=po_st,
                            reading_time=reading_time,
-                          # has_liked_post=has_liked_post,
+                           is_author=is_author,
                            get_gravatar_url=get_gravatar_url
                            )
 

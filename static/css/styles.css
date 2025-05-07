@@ -10987,3 +10987,14 @@ body {
     min-height: 200px;
     margin-bottom: 1rem;
 }
+
+.reply-form {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border-left: 3px solid #0d6efd;
+}
+
+.reply-form textarea {
+    min-height: 100px;
+}

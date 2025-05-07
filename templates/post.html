@@ -219,11 +219,24 @@
        <!-- {{ ckeditor.load() }}-->
         <!--{{ ckeditor.create(name='reply_text') }}-->
        <!-- {{ ckeditor.config(name='comment_text') }}-->
-        {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
+        <!-- {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}-->
+
+
+        {% if is_author %}
+        <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            {{ _("As the post author, you can reply to comments but cannot add new top-level comments.") }}
+        </div>
+        {% endif %}
+
+        {% if not is_author %}
+            {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
+        {% endif %}
 
         <div class="comments mt-5">
-          <h3>{{ _("Comments") }}</h3>
+          <h3>{{ _("Comments: ") }}</h3>
 
+              <!-- Comment section -->
               {% if post.comments %}
                   {% for comment in post.comments %}
                     {% if not comment.parent_id %}
@@ -243,6 +256,7 @@
                                   <small class="text-muted ms-2">(edited)</small>
                                 {% endif %}
 
+                                   <!--  -->
                                 {% if current_user.is_authenticated and (current_user.id == comment.comment_author.id or current_user.id == 1) %}
                                 <div class="dropdown d-inline-block ms-2">
                                   <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
@@ -286,22 +300,31 @@
                               </div>
                             </div>
 
+                            <!-- Reply section -->
                             {% if current_user.is_authenticated %}
                               <button class="btn btn-sm btn-outline-secondary reply-btn" data-comment-id="{{ comment.id }}">
                                 {{ _("Reply") }}
                               </button>
                             {% endif %}
 
-                            <div class="reply-form" id="reply-form-{{ comment.id }}" style="display: none;">
+                            <!-- Reply Form -->
+                            <div class="reply-form mt-3" id="reply-form-{{ comment.id }}" style="display: none;">
                                 <form method="POST" action="{{ url_for('reply_comment', post_id=post.id) }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
-                                    <textarea name="reply_text" id="reply-text-{{ comment.id }}"></textarea>
-                                    <button type="submit" class="btn btn-primary">Submit Reply</button>
-                                    <button type="button" class="btn btn-secondary cancel-reply-btn"
-                                            data-comment-id="{{ comment.id }}">Cancel</button>
+                                    <div class="mb-3">
+                                        <textarea class="form-control" name="reply_text" id="reply-text-{{ comment.id }}" rows="3"></textarea>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary">{{ _("Submit Reply") }}</button>
+                                        <button type="button" class="btn btn-outline-secondary cancel-reply-btn"
+                                                data-comment-id="{{ comment.id }}">
+                                            {{ _("Cancel") }}
+                                        </button>
+                                    </div>
                                 </form>
                             </div>
+
 
                             <div class="replies mt-3 ms-4 ps-3 border-start">
                               {% for reply in (comment.replies or []) | sort(attribute='created_at') %}
@@ -431,45 +454,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Main click event listener
-    document.addEventListener('click', function(e) {
-        // Reply button handler
-        if (e.target.classList.contains('reply-btn')) {
-            const button = e.target;
-            const commentId = button.dataset.commentId;
-            const replyForm = document.getElementById(`reply-form-${commentId}`);
 
-            if (replyForm) {
-                // Toggle display
-                if (replyForm.style.display === 'none' || !replyForm.style.display) {
-                    // Hide all other reply forms
-                    document.querySelectorAll('.reply-form').forEach(form => {
-                        form.style.display = 'none';
-                    });
 
-                    replyForm.style.display = 'block';
-                    button.textContent = 'Cancel';
+// Main click event listener
+document.addEventListener('click', function(e) {
+    // Reply button handler
+    if (e.target.classList.contains('reply-btn')) {
+        const button = e.target;
+        const commentId = button.dataset.commentId;
+        const replyForm = document.getElementById(`reply-form-${commentId}`);
 
-                    // Initialize CKEditor for the reply form
-                    const textarea = replyForm.querySelector('textarea');
-                    if (textarea) initCKEditor(textarea);
-                } else {
-                    replyForm.style.display = 'none';
-                    button.textContent = 'Reply';
-                }
+        if (replyForm) {
+            // Toggle display
+            if (replyForm.style.display === 'none' || !replyForm.style.display) {
+                // Hide all other reply forms and reset their buttons
+                document.querySelectorAll('.reply-form').forEach(form => {
+                    form.style.display = 'none';
+                    const formId = form.id.split('-')[2];
+                    const otherButton = document.querySelector(`.reply-btn[data-comment-id="${formId}"]`);
+                    if (otherButton) otherButton.textContent = '{{ _("Reply") }}';
+                });
+
+                replyForm.style.display = 'block';
+                button.textContent = '{{ _("Cancel") }}';
+
+                // Initialize CKEditor for the reply form
+                const textarea = replyForm.querySelector('textarea');
+                if (textarea) initCKEditor(textarea);
+            } else {
+                replyForm.style.display = 'none';
+                button.textContent = '{{ _("Reply") }}';
             }
         }
-
+    }
         // Cancel reply handler
-        if (e.target.classList.contains('cancel-reply-btn')) {
-            const button = e.target;
-            const commentId = button.dataset.commentId;
-            const replyForm = document.getElementById(`reply-form-${commentId}`);
-            const replyButton = document.querySelector(`.reply-btn[data-comment-id="${commentId}"]`);
 
-            if (replyForm) replyForm.style.display = 'none';
-            if (replyButton) replyButton.textContent = 'Reply';
-        }
+
+
 
         // Edit comment handler
         if (e.target.classList.contains('edit-comment-btn')) {

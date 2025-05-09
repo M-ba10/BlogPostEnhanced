@@ -49,18 +49,12 @@ secret_key = os.getenv('FLASK_KEY')
 
 app = Flask(__name__)
 
-'''if os.environ.get('FLASK_ENV') == "development":
-    # Local development - use Sqlite from .env
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DB_URI', 'sqlite:///instance/posts.db')
-    print("DB URI from .env:", os.getenv("DB_URI"))
-
-else:
-    # for Deployment- use PostgreSQL from render's database
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', '').replace('postgres://', 'postgresql://')
 '''
+DB_URI = sqlite:///instance/posts.db
 
 # 1. EXPLICITLY detect Render's environment
 is_render = 'RENDER' in os.environ or 'DATABASE_URL' in os.environ
+
 
 # 2. FORCE PostgreSQL if on Render
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -72,6 +66,40 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 # 3. VERIFY in logs (check Render's logs for this)
 print(f"🔷 Active Database: {'PostgreSQL' if is_render else 'SQLite'}")
 print(f"🔷 DB URI: {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[0]}...")  # Hide password
+
+'''
+
+############################## Setting up postgreSQL#########################
+
+def get_database_uri():
+    # Production - Render's PostgreSQL
+
+    if 'DATABASE_URL' in os.environ:
+
+        uri = os.environ['DATABASE_URL']
+
+        if uri.startswith('postgres://'):
+            uri = uri.replace('postgres://', 'postgresql://', 1)
+
+        return uri
+
+    # Development - Local PostgreSQL
+
+    if os.getenv('FLASK_ENV') == 'development':
+
+        if not os.getenv('DEV_POSTGRES_URI'):
+            raise ValueError("DEV_POSTGRES_URI must be set for development")
+
+        return os.getenv('DEV_POSTGRES_URI')
+
+    raise RuntimeError("No database configuration found")
+
+
+app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
+
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+#################################################
+
 
 
 app.config['SECRET_KEY'] = secret_key
@@ -419,6 +447,7 @@ with app.app_context():
 
 # Create an admin-only decorator
 def admin_only(f):
+#def author_required(f) :
     @wraps(f)
     def decorated_function(*args, **kwargs):
         # If id is not 1 then return abort with 403 error
@@ -837,7 +866,8 @@ def show_post(post_id):
 
 # Use a decorator so only an admin user can create new posts
 @app.route("/new-post", methods=["GET", "POST"])
-@admin_only
+#@admin_only
+@login_required
 def add_new_post():
     form = CreatePostForm()
     if form.validate_on_submit():

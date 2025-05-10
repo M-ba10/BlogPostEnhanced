@@ -1,21 +1,13 @@
 import secrets
 from datetime import date, datetime, timezone
 from email.message import EmailMessage
-#from time import timezone
 from PIL import Image
-#from flask_wtf.csrf import csrf_token
 from flask_wtf.csrf import CSRFProtect
-
-
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
-
-from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, request, jsonify
-
+from flask import Flask, abort, request, render_template, redirect, session, url_for, flash, jsonify
 from flask_bootstrap import Bootstrap5
-
 from flask_ckeditor import CKEditor
-#from flask_gravatar import Gravatar
 import hashlib
 from flask_login import UserMixin, login_required, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
@@ -23,8 +15,6 @@ from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy.orm import relationship
-# Import your forms from the forms.py
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, ForgotPasswordForm, ResetPasswordForm, \
     UpdateAccountForm, ReplyForm, ContactForm
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
@@ -37,117 +27,200 @@ from dotenv import load_dotenv
 
 
 
-# Load environment variables from the .env file
+# Load environment variables
 load_dotenv()
 
-
-
-
-secret_key = os.getenv('FLASK_KEY')
-#print(f'Secret Key Loaded: {secret_key}')
-#db_uri = os.getenv('DB_URI')
-
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('FLASK_KEY')
 
-'''
-DB_URI = sqlite:///instance/posts.db
+# Database Configuration - SQLite version
+basedir = os.path.abspath(os.path.dirname(__file__))
+db_path = os.path.join(basedir, 'instance/posts.db')
 
-# 1. EXPLICITLY detect Render's environment
-is_render = 'RENDER' in os.environ or 'DATABASE_URL' in os.environ
+# Ensure the instance directory exists
+os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
-
-# 2. FORCE PostgreSQL if on Render
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    os.environ['DATABASE_URL'].replace('postgres://', 'postgresql://')
-    if is_render
-    else 'sqlite:///instance/posts.db'  # Local dev only
-)
-
-# 3. VERIFY in logs (check Render's logs for this)
-print(f"🔷 Active Database: {'PostgreSQL' if is_render else 'SQLite'}")
-print(f"🔷 DB URI: {app.config['SQLALCHEMY_DATABASE_URI'].split('@')[0]}...")  # Hide password
-
-'''
-
-############################## Setting up postgreSQL#########################
-
-def get_database_uri():
-    # Production - Render's PostgreSQL
-
-    if 'DATABASE_URL' in os.environ:
-
-        uri = os.environ['DATABASE_URL']
-
-        if uri.startswith('postgres://'):
-            uri = uri.replace('postgres://', 'postgresql://', 1)
-
-        return uri
-
-    # Development - Local PostgreSQL
-
-    if os.getenv('FLASK_ENV') == 'development':
-
-        if not os.getenv('DEV_POSTGRES_URI'):
-            raise ValueError("DEV_POSTGRES_URI must be set for development")
-
-        return os.getenv('DEV_POSTGRES_URI')
-
-    raise RuntimeError("No database configuration found")
-
-
-app.config['SQLALCHEMY_DATABASE_URI'] = get_database_uri()
-
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-#################################################
+
+# Initialize SQLAlchemy
 
 
 
-app.config['SECRET_KEY'] = secret_key
-
+# Initialize extensions
 csrf = CSRFProtect(app)
+bootstrap = Bootstrap5(app)
+ckeditor = CKEditor(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
-# Configure Flask-Babel for language support
-#app.config['LANGUAGES'] = ['en', 'fr', 'ar']  # Supported languages
 
-app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'  # Directory for translations
 
+'''def inspect_connection_string():
+    # Get the raw connection string
+    uri = "postgresql://flask_user:simplepassword123@localhost:5432/blog_flask_prod"
+    print("Raw connection string as bytes:")
+    print(uri.encode('utf-8').hex())
+
+    # Check each component individually
+    username = "flask_user"
+    password = "simplepassword123"
+    host = "localhost"
+    dbname = "blog_flask_prod"
+
+    print(f"Username as bytes: {username.encode('utf-8').hex()}")
+    print(f"Password as bytes: {password.encode('utf-8').hex()}")
+    print(f"Host as bytes: {host.encode('utf-8').hex()}")
+    print(f"Database name as bytes: {dbname.encode('utf-8').hex()}")
+
+inspect_connection_string()
+
+
+'''
+
+# Initialize SQLAlchemy
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+
+
+
+# Configure Babel
+app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
 app.config['LANGUAGES'] = {
     'en': 'English',
     'fr': 'Français',
     'ar': 'العربية'
 }
 
-#app.config['BABEL_DEFAULT_LOCALE'] = 'en'  # Default language
+
+def get_locale():
+    # 1. Check URL parameter
+    if 'lang' in request.args:
+        lang = request.args['lang']
+        if lang in app.config['LANGUAGES']:
+            session['lang'] = lang
+            return lang
+
+    # 2. Check session
+    if 'lang' in session:
+        return session['lang']
+
+    # 3. Fallback to browser preference
+    return request.accept_languages.best_match(app.config['LANGUAGES'].keys())
 
 babel = Babel(app)
+babel.init_app(app, locale_selector=get_locale)
 
-
-
-#some_string = _("Welcome to our website")
-
+# Email configuration
 app.config['EMAIL_USER'] = os.getenv('EMAIL_USER')
 app.config['EMAIL_PASS'] = os.getenv('EMAIL_PASS')
 
-# Add these near the top with other configs for profile image
+# Profile image configuration
 app.config['UPLOAD_FOLDER'] = 'static/profile_pics'
 app.config['ALLOWED_EXTENSIONS'] = {'jpg', 'jpeg', 'png'}
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024  # 2MB max
 
 
-# Disable old CKEditor CDN injection
-app.config['CKEDITOR_SERVE_LOCAL'] = False
-# Optional: set the CKEditor type (standard, full, basic)
-app.config['CKEDITOR_PKG_TYPE'] = 'standard'
-ckeditor = CKEditor(app)
-
-bootstrap = Bootstrap5(app)
-
-# Configure Flask-Login
-login_manager = LoginManager()
-login_manager.init_app(app)
+# Models
+class Base(DeclarativeBase):
+    pass
 
 
+# Association table for post tags
+post_tags = db.Table('post_tags',
+                     db.Column('post_id', db.Integer, db.ForeignKey('blog_posts.id'), primary_key=True),
+                     db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+                     )
 
+# Association table for user tag subscriptions
+user_tag_subscriptions = db.Table('user_tag_subscriptions',
+                                  db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
+                                  db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+                                  )
+
+
+class Tag(db.Model):
+    __tablename__ = "tags"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+
+    def _repr_(self):
+        return f'<Tag {self.name}>'
+
+
+class BlogPost(db.Model):
+    __tablename__ = "blog_posts"
+    id = db.Column(db.Integer, primary_key=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    author = relationship("User", back_populates="posts")
+    title = db.Column(db.String(250), unique=True, nullable=False)
+    subtitle = db.Column(db.String(250), nullable=False)
+    date = db.Column(db.String(250), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    img_url = db.Column(db.String(250), nullable=False)
+    comments = relationship("Comment", back_populates="parent_post")
+    likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
+    tags = relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
+
+    @property
+    def like_count(self):
+        return db.session.query(Like).filter_by(post_id=self.id).count()
+
+
+class User(UserMixin, db.Model):
+    __tablename__ = "users"
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(100), unique=True)
+    password = db.Column(db.String(100))
+    name = db.Column(db.String(100))
+    confirmed = db.Column(db.Boolean, default=False)
+    receive_notifications = db.Column(db.Boolean, default=True)
+    profile_image = db.Column(db.String(250), nullable=True)
+    receive_reply_notifications = db.Column(db.Boolean, default=True)
+    posts = relationship("BlogPost", back_populates="author")
+    comments = relationship("Comment", back_populates="comment_author")
+    likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
+    subscribed_tags = db.relationship('Tag', secondary='user_tag_subscriptions', backref='subscribers')
+
+    def has_liked_post(self, post_id):
+        return Like.query.filter_by(user_id=self.id, post_id=post_id).first() is not None
+
+
+class Comment(db.Model):
+    __tablename__ = "comments"
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    comment_author = relationship("User", back_populates="comments")
+    post_id = db.Column(db.Integer, db.ForeignKey("blog_posts.id"))
+    parent_post = relationship("BlogPost", back_populates="comments")
+    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True)
+    replies = relationship("Comment", back_populates="parent", remote_side=[id], cascade="all, delete-orphan",
+                           single_parent=True)
+    parent = relationship("Comment", back_populates="replies", remote_side=[parent_id])
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    edited = db.Column(db.Boolean, default=False)
+    edited_at = db.Column(db.DateTime)
+
+
+class Like(db.Model):
+    __tablename__ = "likes"
+    id = db.Column(Integer, primary_key=True)
+    user_id = db.Column(Integer, db.ForeignKey("users.id"), nullable=False)
+    user = relationship("User", back_populates="likes")
+    post_id = db.Column(Integer, db.ForeignKey("blog_posts.id"), nullable=False)
+    post = relationship("BlogPost", back_populates="likes")
+    timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)
+
+
+# Helper Functions
 def allowed_file(filename):
     return '.' in filename and \
         filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -159,7 +232,6 @@ def save_profile_picture(form_picture):
     picture_fn = random_hex + f_ext
     picture_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], picture_fn)
 
-    # Resize image
     output_size = (125, 125)
     i = Image.open(form_picture)
     i.thumbnail(output_size)
@@ -168,14 +240,17 @@ def save_profile_picture(form_picture):
     return picture_fn
 
 
+def get_gravatar_url(email, size=100):
+    email = email.strip().lower()
+    hash_email = hashlib.md5(email.encode('utf-8')).hexdigest()
+    return f"https://www.gravatar.com/avatar/{hash_email}?s={size}&d=retro"
 
-# Create an email confirmation token
+
 def generate_confirmation_token(email):
     serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
     return serializer.dumps(email, salt='email-confirm')
 
 
-# Send the confirmation email:
 def send_confirmation_email(user_email, token):
     confirm_url = url_for('confirm_email', token=token, _external=True)
     html = f'Click to confirm your email: <a href="{confirm_url}">{confirm_url}</a>'
@@ -190,349 +265,33 @@ def send_confirmation_email(user_email, token):
         connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
         connection.send_message(msg)
 
-# Languages configuration'''
-# Function to get the user's preferred language
-def get_locale():
-    # 1. Check URL parameter
-    if 'lang' in request.args:
-        if request.args['lang'] in app.config['LANGUAGES']:
-            session['lang'] = request.args['lang']
-            return request.args['lang']
-    
-    # 2. Check session
-    if 'lang' in session:
-        return session['lang']
-    
-    # 3. Fallback to browser preference
-    return request.accept_languages.best_match(app.config['LANGUAGES'].keys())
 
-# Initialize with locale selector
-babel.init_app(app, locale_selector=get_locale)
-
-# The account management rout
-@app.route('/account', methods=['GET', 'POST'])
-@login_required
-def account():
-    form = UpdateAccountForm(obj=current_user)  # Pre-populate with current user data
-
-    if form.validate_on_submit():
-        # Update name
-        current_user.name = form.name.data
-
-        # Handle profile picture upload
-        if form.picture.data:
-            picture_file = save_profile_picture(form.picture.data)
-            if current_user.profile_image and current_user.profile_image != 'default.jpg':
-                old_pic = os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_image)
-                if os.path.exists(old_pic):
-                    os.remove(old_pic)
-            current_user.profile_image = picture_file
-
-        # Handle password change
-        if form.new_password.data:
-            if not check_password_hash(current_user.password, form.current_password.data):
-                flash('Current password is incorrect', 'danger')
-                return redirect(url_for('account'))
-            current_user.password = generate_password_hash(form.new_password.data)
-
-        db.session.commit()
-        flash('Your account has been updated!', 'success')
-        return redirect(url_for('account'))
-
-    elif request.method == 'GET':
-        form.name.data = current_user.name  # Pre-populate on GET request
-
-    return render_template('account.html', form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
-
-
-@app.route('/change_language/<language>')
-def change_language(language):
-    if language in app.config['LANGUAGES']:
-        session['lang'] = language
-        # Force refresh the language for current request
-        get_locale()
-    return redirect(request.referrer or url_for('get_all_posts'))
-
-# Route to change language
-'''@app.route('/change_language/<language>')
-def change_language(language):
-    if language in app.config['LANGUAGES']:
-        session['language'] = language
-    return redirect(request.referrer or url_for('get_all_posts'))
-'''
-
-@login_manager.user_loader
-def load_user(user_id):
-    return db.get_or_404(User, user_id)
-
-
-# For adding profile images to the comment section
-'''gravatar = Gravatar(app,
-                    size=100,
-                    rating='g',
-                    default='retro',
-                    force_default=False,
-                    force_lower=False,
-                    use_ssl=False,
-                    base_url=None)
-'''
-def get_gravatar_url(email, size=100):
-    email = email.strip().lower()
-    hash_email = hashlib.md5(email.encode('utf-8')).hexdigest()
-    return f"https://www.gravatar.com/avatar/{hash_email}?s={size}&d=retro"
-
-
-# CREATE DATABASE
-class Base(DeclarativeBase):
-    pass
-
-
-db = SQLAlchemy(model_class=Base)
-#print("SQLAlchemy URI:", app.config['SQLALCHEMY_DATABASE_URI'])
-
-migrate = Migrate(app, db)
-
-#app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:///instance/post.db"
-'''app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get("DB_URI", "sqlite:///instance/posts.db")
-print("SQLAlchemy URI:", app.config['SQLALCHEMY_DATABASE_URI'])'''
-
-basedir = os.path.abspath(os.path.dirname(__file__))
-db_path = os.path.join(basedir, 'instance', 'posts.db')
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{db_path}"
-print("Resolved DB Path:", db_path)
-
-
-
-db.init_app(app)
-
-class Tag(db.Model):
-    __tablename__ = "tags"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-
-    # Relationship
-   # posts = db.relationship('BlogPost', secondary=post_tags, backref=db.backref('tags', lazy='dynamic'))
-
-    def __repr__(self):
-        return f'<Tag {self.name}>'
-
-# Many-to-many relationship between posts and tags
-post_tags = db.Table('post_tags',
-                     db.Column('post_id', db.Integer, db.ForeignKey('blog_posts.id'), primary_key=True),
-                     db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
-                     )
-
-# CONFIGURE TABLES
-class BlogPost(db.Model):
-    __tablename__ = "blog_posts"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    # Create Foreign Key, "users.id" the users refers to the tablename of User.
-    author_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
-    # Create reference to the User object. The "posts" refers to the posts property in the User class.
-    author = relationship("User", back_populates="posts")
-    title: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
-    subtitle: Mapped[str] = mapped_column(String(250), nullable=False)
-    date: Mapped[str] = mapped_column(String(250), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
-    img_url: Mapped[str] = mapped_column(String(250), nullable=False)
-    # Parent relationship to the comments
-    comments = relationship("Comment", back_populates="parent_post")
-
-    #Updating to include like relationship 4
-    likes = relationship("Like", back_populates="post", cascade="all, delete-orphan")
-
-    # Relationship to tags
-    tags = db.relationship('Tag', secondary=post_tags, backref=db.backref('posts', lazy='dynamic'))
-
-
-
-
-    # add a propriety to count likes 5
-    @property
-    def like_count(self):
-        return db.session.query(Like).filter_by(post_id=self.id).count()
-
-
-
-# Create a User table for all your registered users
-class User(UserMixin, db.Model):
-    __tablename__ = "users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    email: Mapped[str] = mapped_column(String(100), unique=True)
-    password: Mapped[str] = mapped_column(String(100))
-    name: Mapped[str] = mapped_column(String(100))
-    # for email confirmation
-    confirmed = db.Column(db.Boolean, default=False)
-    # For notifications
-    receive_notifications = db.Column(db.Boolean, default=True) 
-    # For profile images to Do
-    profile_image = db.Column(db.String(250), nullable=True)
-
-    # for reply notification
-    receive_reply_notifications = db.Column(db.Boolean, default=True)
-    
-    # This will act like a list of BlogPost objects attached to each User.
-    # The "author" refers to the author property in the BlogPost class.
-    posts = relationship("BlogPost", back_populates="author")
-    # Parent relationship: "comment_author" refers to the comment_author property in the Comment class.
-    comments = relationship("Comment", back_populates="comment_author")
-
-    # added to include like relationship 2
-    likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
-
-    # for tag
-    subscribed_tags = db.relationship('Tag', secondary='user_tag_subscriptions', backref='subscribers')
-
-
-    # method for checking whether the user has liked the post 3
-    def has_liked_post(self, post_id):
-        return Like.query.filter_by(user_id=self.id, post_id=post_id).first() is not None
-
-
-# And create this association table
-user_tag_subscriptions = db.Table('user_tag_subscriptions',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
-)
-
-# Create a table for the comments on the blog posts
-class Comment(db.Model):
-    __tablename__ = "comments"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    # Child relationship:"users.id" The users refers to the tablename of the User class.
-    # "comments" refers to the comments property in the User class.
-    author_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
-    comment_author = relationship("User", back_populates="comments")
-    # Child Relationship to the BlogPosts
-    post_id: Mapped[str] = mapped_column(Integer, db.ForeignKey("blog_posts.id"))
-    parent_post = relationship("BlogPost", back_populates="comments")
-
-    #  for reply functionality
-    parent_id = db.Column(db.Integer, db.ForeignKey('comments.id'), nullable=True)
-    replies = relationship("Comment", back_populates="parent", remote_side=[id], cascade="all, delete-orphan", single_parent=True)
-    parent = relationship("Comment", back_populates="replies", remote_side=[parent_id])
-    created_at = db.Column(db.DateTime, default=lambda:datetime.now(timezone.utc))
-
-    edited = db.Column(db.Boolean, default=False)
-    edited_at = db.Column(db.DateTime)
-
-####################For like ###################### 1
-# Add this to your models section (after the Comment class)
-class Like(db.Model):
-    __tablename__ = "likes"
-    id = db.Column(Integer, primary_key=True)
-
-    # Who liked
-    user_id = db.Column(Integer, db.ForeignKey("users.id"), nullable=False)
-    user = relationship("User", back_populates="likes")
-
-    # What was liked (post)
-    post_id = db.Column(Integer, db.ForeignKey("blog_posts.id"), nullable=False)
-    post = relationship("BlogPost", back_populates="likes")
-
-    # When it was liked
-    timestamp = db.Column(db.DateTime, default=lambda:datetime.now(timezone.utc))
-
-    # Make sure a user can only like a post once (unique constraint)
-    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)
-
-
-
-# Create the database tables
-with app.app_context():
-    db.create_all()
-    print("Database tables created!")
-
-
-# Create an admin-only decorator
-def admin_only(f):
-#def author_required(f) :
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # If id is not 1 then return abort with 403 error
-        if current_user.id != 1:
-            return abort(403)
-        # Otherwise continue with the route function
-        return f(*args, **kwargs)
-
-    return decorated_function
-
-# 5. Add a notification service
-def send_new_post_notification(post):
-    """Send email notification to all users about new post"""
-    try:
-        app.logger.info(f"Starting notification for post: {post.title}")
-        
-        # Get all users who want notifications
-        subscribers = User.query.filter_by(receive_notifications=True).all()
-        if not subscribers:
-            app.logger.info("No subscribers found")
-            return
-
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
-            
-            for user in subscribers:
-                try:
-                    msg = MIMEText(
-                        f"Hello {user.name},\n\n"
-                        f"New post by {post.author.name}: {post.title}\n"
-                        f"Read it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
-                        "To unsubscribe: {url_for('notification_preferences', _external=True)}",
-                        'plain'
-                    )
-                    msg['Subject'] = f"New Post: {post.title}"
-                    msg['From'] = app.config['EMAIL_USER']
-                    msg['To'] = user.email
-                    
-                    server.send_message(msg)
-                    app.logger.info(f"Notification sent to {user.email}")
-                    
-                except Exception as e:
-                    app.logger.error(f"Failed to send to {user.email}: {str(e)}")
-                    
-    except Exception as e:
-        app.logger.error(f"Notification system error: {str(e)}")
-        raise  # Re-raise if you want to see it in console
-
-
-# send like notification 6
-# Add this function to handle like notifications
-def send_like_notification(post, liker):
-    """Send email notification to post author when someone likes their post"""
-    try:
-        app.logger.info(f"Sending like notification for post: {post.title}")
-
-        # Only notify the author if they want notifications and aren't the one liking
-        if post.author.id != liker.id and post.author.receive_notifications:
-            try:
-                with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                    server.starttls()
-                    server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
-
-                    # Create the notification message
-                    msg = MIMEText(
-                        f"Hello {post.author.name},\n\n"
-                        f"{liker.name} liked your post: {post.title}\n"
-                        f"View it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
-                        f"To manage notifications: {url_for('notification_preferences', _external=True)}",
-                        'plain'
-                    )
-                    msg['Subject'] = f"{liker.name} liked your post: {post.title}"
-                    msg['From'] = app.config['EMAIL_USER']
-                    msg['To'] = post.author.email
-
-                    server.send_message(msg)
-                    app.logger.info(f"Like notification sent to {post.author.email}")
-
-            except Exception as e:
-                app.logger.error(f"Failed to send like notification to {post.author.email}: {str(e)}")
-
-    except Exception as e:
-        app.logger.error(f"Like notification system error: {str(e)}")
-
+def calculate_reading_time(content):
+    word_count = len(content.split())
+    minutes = max(1, round(word_count / 200))
+    return minutes
+
+
+def send_email(name, email, phone, message):
+    msg = EmailMessage()
+    msg['Subject'] = 'New Contact Message from Blog'
+    msg['From'] = app.config['EMAIL_USER']
+    msg['To'] = app.config['EMAIL_USER']
+    msg['Reply-To'] = email
+
+    msg.set_content(f"""
+    You received a new message from your website contact form:
+
+    Name: {name}
+    Email: {email}
+    Phone: {phone}
+    Message:
+    {message}
+    """)
+
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+        smtp.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+        smtp.send_message(msg)
 
 # for reply notifications
 
@@ -572,71 +331,161 @@ def send_reply_notification(reply, parent_comment):
     except Exception as e:
         app.logger.error(f"Failed to send reply notification: {str(e)}")
 
-#🧾 Add a Search Route in Flask
-@app.route("/search", methods=["GET"])
-def search_by_author():
-    query = request.args.get("query", "").strip()
 
-    if not query:
-        return render_template("search_results.html",
-                               posts=[],
-                               query=query,
-                               message="Please enter a name to search.",
-                               get_gravatar_url=get_gravatar_url)
+# 5. Add a notification service
+def send_new_post_notification(post):
+    """Send email notification to all users about new post"""
+    try:
+        app.logger.info(f"Starting notification for post: {post.title}")
 
-    users = User.query.filter(User.name.ilike(f"%{query}%")).all()
+        # Get all users who want notifications
+        subscribers = User.query.filter_by(receive_notifications=True).all()
+        if not subscribers:
+            app.logger.info("No subscribers found")
+            return
 
-    if not users:
-        return render_template("search_results.html",
-                               posts=[],
-                               query=query,
-                               message="No authors found matching that name.",
-                               get_gravatar_url=get_gravatar_url)
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
 
-    # Create a list of posts with author information
-    posts_with_authors = []
-    for user in users:
-        for post in user.posts:
-            posts_with_authors.append({
-                "id": post.id,
-                "title": post.title,
-                "subtitle": post.subtitle,
-                "date": post.date,
-                "author": {
-                    "name": user.name,
-                    "image": user.profile_image,
-                    "email": user.email
-                }
+            for user in subscribers:
+                try:
+                    msg = MIMEText(
+                        f"Hello {user.name},\n\n"
+                        f"New post by {post.author.name}: {post.title}\n"
+                        f"Read it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                        "To unsubscribe: {url_for('notification_preferences', _external=True)}",
+                        'plain'
+                    )
+                    msg['Subject'] = f"New Post: {post.title}"
+                    msg['From'] = app.config['EMAIL_USER']
+                    msg['To'] = user.email
 
+                    server.send_message(msg)
+                    app.logger.info(f"Notification sent to {user.email}")
 
-            })
-            #posts_with_authors.append(post_data)
+                except Exception as e:
+                    app.logger.error(f"Failed to send to {user.email}: {str(e)}")
 
-    if not posts_with_authors:
-        return render_template("search_results.html",
-                               posts=[],
-                               query=query,
-                               message="Author(s) found, but they haven't written any posts yet.",
-                               get_gravatar_url=get_gravatar_url)
-
-    return render_template("search_results.html",
-                           posts=posts_with_authors,
-                           query=query,
-                           get_gravatar_url=get_gravatar_url)
+    except Exception as e:
+        app.logger.error(f"Notification system error: {str(e)}")
+        raise  # Re-raise if you want to see it in console
 
 
+ # send like notification 6
+    # Add this function to handle like notifications
+def send_like_notification(post, liker):
+    """Send email notification to post author when someone likes their post"""
+    try:
+        app.logger.info(f"Sending like notification for post: {post.title}")
 
-# Register new users into the User database
+        # Only notify the author if they want notifications and aren't the one liking
+        if post.author.id != liker.id and post.author.receive_notifications:
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                    server.starttls()
+                    server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+
+                    # Create the notification message
+                    msg = MIMEText(
+                        f"Hello {post.author.name},\n\n"
+                        f"{liker.name} liked your post: {post.title}\n"
+                        f"View it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                        f"To manage notifications: {url_for('notification_preferences', _external=True)}",
+                        'plain'
+                    )
+                    msg['Subject'] = f"{liker.name} liked your post: {post.title}"
+                    msg['From'] = app.config['EMAIL_USER']
+                    msg['To'] = post.author.email
+
+                    server.send_message(msg)
+                    app.logger.info(f"Like notification sent to {post.author.email}")
+
+            except Exception as e:
+                app.logger.error(f"Failed to send like notification to {post.author.email}: {str(e)}")
+
+    except Exception as e:
+        app.logger.error(f"Like notification system error: {str(e)}")
+
+
+
+# Decorators
+def admin_only(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if current_user.id != 1:
+            return abort(403)
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
+######################################### Routes #################################
+# The account management rout
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    form = UpdateAccountForm(obj=current_user)  # Pre-populate with current user data
+
+    if form.validate_on_submit():
+        # Update name
+        current_user.name = form.name.data
+
+        # Handle profile picture upload
+        if form.picture.data:
+            picture_file = save_profile_picture(form.picture.data)
+            if current_user.profile_image and current_user.profile_image != 'default.jpg':
+                old_pic = os.path.join(app.config['UPLOAD_FOLDER'], current_user.profile_image)
+                if os.path.exists(old_pic):
+                    os.remove(old_pic)
+            current_user.profile_image = picture_file
+
+        # Handle password change
+        if form.new_password.data:
+            if not check_password_hash(current_user.password, form.current_password.data):
+                flash('Current password is incorrect', 'danger')
+                return redirect(url_for('account'))
+            current_user.password = generate_password_hash(form.new_password.data)
+
+        db.session.commit()
+        flash('Your account has been updated!', 'success')
+        return redirect(url_for('account'))
+
+    elif request.method == 'GET':
+        form.name.data = current_user.name  # Pre-populate on GET request
+
+    return render_template('account.html', form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
+
+#################################language setup
+@app.route('/change_language/<language>')
+def change_language(language):
+    if language in app.config['LANGUAGES']:
+        session['lang'] = language
+        # Force refresh the language for current request
+        get_locale()
+    return redirect(request.referrer or url_for('get_all_posts'))
+
+@app.context_processor
+def inject_template_methods():
+    return {
+        'get_locale': get_locale,
+        'current_language': session.get('lang', 'en')
+    }
+
+@app.route('/')
+def get_all_posts():
+    result = db.session.execute(db.select(BlogPost))
+    posts = result.scalars().all()
+    return render_template("index.html", all_posts=posts, current_user=current_user, get_gravatar_url=get_gravatar_url)
+
+
 @app.route('/register', methods=["GET", "POST"])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
-
-        # Check if user email is already present in the database.
         result = db.session.execute(db.select(User).where(User.email == form.email.data))
         user = result.scalar()
         if user:
-            # User already exists
             flash(_("You've already signed up with that email, log in instead!"))
             return redirect(url_for('login'))
 
@@ -649,44 +498,18 @@ def register():
             email=form.email.data,
             name=form.name.data,
             password=hash_and_salted_password,
-            confirmed=False  # Make sure your User model includes this field
+            confirmed=False
         )
         db.session.add(new_user)
         db.session.commit()
-        
-         # Generate confirmation token
-        token = generate_confirmation_token(new_user.email)
 
-        # Send confirmation email
+        token = generate_confirmation_token(new_user.email)
         send_confirmation_email(new_user.email, token)
 
         flash(_("A confirmation email has been sent. Please check your inbox."))
         return redirect(url_for("login"))
 
-        # This line will authenticate the user with Flask-Login
-        '''login_user(new_user)
-        return redirect(url_for("get_all_posts"))'''
-
     return render_template("register.html", form=form, current_user=current_user)
-
-# 6. Add confirmation route for email confirmation:
-@app.route('/confirm/<token>')
-def confirm_email(token):
-    try:
-        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
-        email = serializer.loads(token, salt='email-confirm', max_age=3600)
-    except (SignatureExpired, BadSignature):
-        flash(_('The confirmation link is invalid or has expired.', 'danger'))
-        return redirect(url_for('login'))
-
-    user = User.query.filter_by(email=email).first_or_404()
-    if user.confirmed:
-        flash(_('Account already confirmed. Please login.', 'info'))
-    else:
-        user.confirmed = True
-        db.session.commit()
-        flash(_('Your account has been confirmed!'))
-    return redirect(url_for('login'))
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -695,88 +518,27 @@ def login():
     if form.validate_on_submit():
         password = form.password.data
         result = db.session.execute(db.select(User).where(User.email == form.email.data))
-        # Note, email in db is unique so will only have one result.
         user = result.scalar()
-        # Email doesn't exist
         if not user:
             flash(_("That email does not exist, please try again."))
             return redirect(url_for('login'))
-        # Password incorrect
         elif not check_password_hash(user.password, password):
             flash(_('Password incorrect, please try again.'))
             return redirect(url_for('login'))
-        
         elif not user.confirmed:
             flash(_("Please confirm your email before logging in."))
             return redirect(url_for('login'))
-
         else:
             login_user(user)
             return redirect(url_for('get_all_posts'))
 
-    return render_template("login.html", form=form, current_user=current_user,get_gravatar_url=get_gravatar_url)
-
-
- # 2. Route: Show Reset Request Page & Send Email
-@app.route("/forgot-password", methods=["GET", "POST"])
-def forgot_password():
-    form = ForgotPasswordForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user:
-            token = generate_confirmation_token(user.email)
-            reset_url = url_for('reset_password', token=token, _external=True)
-
-            # Email setup
-            html = f"Click the link to reset your password: <a href='{reset_url}'>{reset_url}</a>"
-            msg = MIMEText(html, "html")
-            msg["Subject"] = "Reset Your Password"
-            msg["From"] = app.config['EMAIL_USER']
-            msg["To"] = user.email
-
-            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-                connection.starttls()
-                connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
-                connection.send_message(msg)
-
-        flash(_("If that email is in our system, a reset link has been sent."))
-        return redirect(url_for("login"))
-
-    return render_template("forgot_password.html", form=form, current_user=current_user)
-
-#Route: Handle Token and Show Reset Form    
-@app.route("/reset-password/<token>", methods=["GET", "POST"])
-def reset_password(token):
-    try:
-        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
-        email = serializer.loads(token, salt='email-confirm', max_age=3600)
-    except (SignatureExpired, BadSignature):
-        flash(_("Invalid or expired reset link."))
-        return redirect(url_for('login'))
-
-    user = User.query.filter_by(email=email).first_or_404()
-    form = ResetPasswordForm()
-    if form.validate_on_submit():
-        user.password = generate_password_hash(form.password.data, method='pbkdf2:sha256', salt_length=8)
-        db.session.commit()
-        flash(_("Your password has been reset. Please log in."))
-        return redirect(url_for("login"))
-
-    return render_template("reset_password.html", form=form, current_user=current_user, token=token)
-
+    return render_template("login.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 @app.route('/logout')
 def logout():
     logout_user()
     return redirect(url_for('get_all_posts'))
-
-
-@app.route('/')
-def get_all_posts():
-    result = db.session.execute(db.select(BlogPost))
-    posts = result.scalars().all()
-    return render_template("index.html", all_posts=posts, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 # Add a POST method to be able to post comments
@@ -863,7 +625,6 @@ def show_post(post_id):
                            get_gravatar_url=get_gravatar_url
                            )
 
-
 # Use a decorator so only an admin user can create new posts
 @app.route("/new-post", methods=["GET", "POST"])
 #@admin_only
@@ -881,7 +642,7 @@ def add_new_post():
         )
         db.session.add(new_post)
         db.session.commit()
-        
+
         print(f"✅ New post created by {current_user.name}")  # Debug 1
 
          # Get users who want notifications
@@ -898,19 +659,6 @@ def add_new_post():
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
-# Add notification preference to the user profile
-@app.route("/notification_preferences", methods=["GET", "POST"])
-@login_required
-def notification_preferences():
-    if request.method == "POST":
-        current_user.receive_notifications = 'notify' in request.form
-        current_user.receive_reply_notifications = 'reply_notify' in request.form
-        db.session.commit()
-        flash(_("Your notification preferences have been updated!"))
-        return redirect(url_for('notification_preferences'))
-
-    return render_template("notification_preferences.html",
-                           get_gravatar_url=get_gravatar_url)
 
 
 
@@ -951,8 +699,7 @@ def like_post(post_id):
 
         return {"status": "liked", "likes": like_count}
 
-
-# Use a decorator so only an admin user can edit a post
+ # Use a decorator so only an admin user can edit a post
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 @admin_only
 def edit_post(post_id):
@@ -988,6 +735,148 @@ def delete_post(post_id):
     db.session.commit()
     return redirect(url_for('get_all_posts'))
 
+
+#🧾 Add a Search Route in Flask
+@app.route("/search", methods=["GET"])
+def search_by_author():
+    query = request.args.get("query", "").strip()
+
+    if not query:
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="Please enter a name to search.",
+                               get_gravatar_url=get_gravatar_url)
+
+    users = User.query.filter(User.name.ilike(f"%{query}%")).all()
+
+    if not users:
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="No authors found matching that name.",
+                               get_gravatar_url=get_gravatar_url)
+
+    # Create a list of posts with author information
+    posts_with_authors = []
+    for user in users:
+        for post in user.posts:
+            posts_with_authors.append({
+                "id": post.id,
+                "title": post.title,
+                "subtitle": post.subtitle,
+                "date": post.date,
+                "author": {
+                    "name": user.name,
+                    "image": user.profile_image,
+                    "email": user.email
+                }
+
+
+            })
+            #posts_with_authors.append(post_data)
+
+    if not posts_with_authors:
+        return render_template("search_results.html",
+                               posts=[],
+                               query=query,
+                               message="Author(s) found, but they haven't written any posts yet.",
+                               get_gravatar_url=get_gravatar_url)
+
+    return render_template("search_results.html",
+                           posts=posts_with_authors,
+                           query=query,
+                           get_gravatar_url=get_gravatar_url)
+
+
+
+    # 6. Add confirmation route for email confirmation:
+@app.route('/confirm/<token>')
+def confirm_email(token):
+    try:
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        email = serializer.loads(token, salt='email-confirm', max_age=3600)
+    except (SignatureExpired, BadSignature):
+        flash(_('The confirmation link is invalid or has expired.', 'danger'))
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+    if user.confirmed:
+        flash(_('Account already confirmed. Please login.', 'info'))
+    else:
+        user.confirmed = True
+        db.session.commit()
+        flash(_('Your account has been confirmed!'))
+    return redirect(url_for('login'))
+
+
+     # 2. Route: Show Reset Request Page & Send Email
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user:
+            token = generate_confirmation_token(user.email)
+            reset_url = url_for('reset_password', token=token, _external=True)
+
+            # Email setup
+            html = f"Click the link to reset your password: <a href='{reset_url}'>{reset_url}</a>"
+            msg = MIMEText(html, "html")
+            msg["Subject"] = "Reset Your Password"
+            msg["From"] = app.config['EMAIL_USER']
+            msg["To"] = user.email
+
+            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                connection.starttls()
+                connection.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+                connection.send_message(msg)
+
+        flash(_("If that email is in our system, a reset link has been sent."))
+        return redirect(url_for("login"))
+
+    return render_template("forgot_password.html", form=form, current_user=current_user)
+
+
+#Route: Handle Token and Show Reset Form
+@app.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    try:
+        serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
+        email = serializer.loads(token, salt='email-confirm', max_age=3600)
+    except (SignatureExpired, BadSignature):
+        flash(_("Invalid or expired reset link."))
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        user.password = generate_password_hash(form.password.data, method='pbkdf2:sha256', salt_length=8)
+        db.session.commit()
+        flash(_("Your password has been reset. Please log in."))
+        return redirect(url_for("login"))
+
+    return render_template("reset_password.html", form=form, current_user=current_user, token=token)
+
+
+# Add notification preference to the user profile
+@app.route("/notification_preferences", methods=["GET", "POST"])
+@login_required
+def notification_preferences():
+    if request.method == "POST":
+        current_user.receive_notifications = 'notify' in request.form
+        current_user.receive_reply_notifications = 'reply_notify' in request.form
+        db.session.commit()
+        flash(_("Your notification preferences have been updated!"))
+        return redirect(url_for('notification_preferences'))
+
+    return render_template("notification_preferences.html",
+                           get_gravatar_url=get_gravatar_url)
+
+
+
+
+
 # edit comment
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 @login_required
@@ -1016,7 +905,8 @@ def edit_comment(comment_id):
         'edited_at': comment.edited_at.strftime('%B %d, %Y at %H:%M')
     })
 
-# delete comment
+
+  # delete comment
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required
 def delete_comment(comment_id):
@@ -1064,8 +954,6 @@ def reply_comment(post_id):
 
         flash('Your reply has been posted!', 'success')
         return redirect(url_for('show_post', post_id=post_id))
-
-
 
 
 # If you want to implement tags, you'll need a route for them too
@@ -1141,35 +1029,6 @@ def inject_tags():
 
     return {'popular_tags': tags_with_size}
 
-# For reading time, add this to your post route:
-def calculate_reading_time(content):
-    # Average reading speed: 200 words per minute
-    word_count = len(content.split())
-    minutes = max(1, round(word_count / 200))
-    return minutes
-
-# for contact
-def send_email(name, email, phone, message):
-    msg = EmailMessage()
-    msg['Subject'] = 'New Contact Message from Blog'
-    msg['From'] = app.config['EMAIL_USER']
-    msg['To'] = app.config['EMAIL_USER']
-    msg['Reply-To'] = email # user that sent the mail
-
-    msg.set_content(f"""
-    You received a new message from your website contact form:
-
-    Name: {name}
-    Email: {email}
-    Phone: {phone}
-    Message:
-    {message}
-    """)
-
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        #smtp.starttls()
-        smtp.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
-        smtp.send_message(msg)
 
 @app.route("/about")
 def about():
@@ -1195,7 +1054,20 @@ def contact():
 
     return render_template("contact.html",form=form, current_user=current_user, msg_sent=True, get_gravatar_url=get_gravatar_url)
 
+# ... (include all other routes from your original code)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
+    with app.app_context():
+        try:
+            os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
+
+            db.create_all()
+            print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
+        except Exception as e:
+            print(f"❌ Database operation failed: {str(e)}")
+            print(f"Error type: {type(e).__name__}")
+            import traceback
+
+            traceback.print_exc()
 
     app.run(debug=False, port=5001)

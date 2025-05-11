@@ -5,31 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="description" content="" />
     <meta name="author" content="" />
-    <!-- In header.html before </head> -->
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>B_log</title>
     {% block styles %}
-    <!-- Load Bootstrap-Flask CSS here -->
     {{ bootstrap.load_css() }}
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='assets/favicon.ico') }}" />
-    <!-- Font Awesome icons (free version)-->
     <script src="https://use.fontawesome.com/releases/v6.3.0/js/all.js" crossorigin="anonymous"></script>
-    <!-- Google fonts-->
     <link href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic" rel="stylesheet" type="text/css" />
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css" />
-    <!-- Core theme CSS (includes Bootstrap)-->
     <link href="{{ url_for('static', filename='css/styles.css') }}" rel="stylesheet" />
-
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <style>
-      /* Navigation Bar Styling - Dark Blue Theme */
+      /* Navigation Bar */
       #mainNav {
         background-color: #2c3e50;
         box-shadow: 0 0.125rem 0.25rem 0 rgba(0, 0, 0, 0.2);
       }
 
-      /* Consistent alignment for all nav items */
+      /* Navigation Items */
       .navbar-nav {
         display: flex;
         align-items: center;
@@ -38,7 +32,7 @@
       .nav-item {
         display: flex;
         align-items: center;
-        height: 60px; /* Fixed height for all items */
+        height: 60px;
       }
 
       .nav-link {
@@ -54,7 +48,7 @@
         color: #3498db !important;
       }
 
-      /* Account section styling */
+      /* Account Section */
       .account-section {
         display: flex;
         align-items: center;
@@ -68,93 +62,355 @@
         border: 2px solid rgba(255,255,255,0.2);
       }
 
-      /* Notification icon styling */
+      /* Notification Icon */
       .notification-icon {
         margin-right: 5px;
         font-size: 1rem;
       }
 
-      /* Search form styling */
+      /* Search Form */
+      .search-container {
+        display: flex;
+        align-items: center;
+      }
+
       .search-form {
+        display: flex;
         margin-left: auto;
-        margin-right: 15px;
+      }
+
+      .search-form .form-control {
+        min-width: 300px;
+        background-color: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.2);
+        color: white;
+      }
+
+      .search-form .form-control::placeholder {
+        color: rgba(255,255,255,0.6);
       }
 
       .search-btn {
         background-color: #3498db;
         color: white;
         padding: 0.25rem 0.75rem;
-        border-radius: 4px;
+        border: none;
+        border-radius: 0 4px 4px 0;
       }
 
-      /* Language dropdown styling */
+      /* Language Dropdown */
       .language-dropdown .btn {
         color: #ecf0f1;
         border-color: #ecf0f1;
+        padding: 0.25rem 0.75rem;
       }
 
-      /* Ensure content doesn't hide behind navbar */
+      /* Mobile Menu Button */
+      .mobile-menu-btn {
+        display: none;
+        border: none;
+      }
+
+      /* Offcanvas Drawer */
+      .offcanvas {
+        background-color: #2c3e50;
+      }
+
+      .offcanvas-header {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+
+      .offcanvas-body .nav-link {
+        color: #ecf0f1;
+        padding: 0.75rem 1.5rem;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+
+      /* Tag Cloud */
+      .tag-cloud-container {
+        padding: 1rem;
+        background-color: #f8f9fa;
+        margin-bottom: 1rem;
+        border-radius: 0.25rem;
+      }
+
+      .tag-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .tag-cloud a {
+        padding: 0.25rem 0.5rem;
+        background-color: #e9ecef;
+        border-radius: 0.25rem;
+        text-decoration: none;
+        color: #495057;
+        font-size: 0.875rem;
+      }
+
+      .tag-size-1 { font-size: 0.8rem; }
+      .tag-size-2 { font-size: 0.9rem; }
+      .tag-size-3 { font-size: 1rem; }
+      .tag-size-4 { font-size: 1.1rem; }
+      .tag-size-5 { font-size: 1.2rem; }
+
+      /* Responsive Adjustments */
+      @media (max-width: 992px) {
+        .mobile-menu-btn {
+          display: block;
+        }
+
+        .desktop-only {
+          display: none !important;
+        }
+
+        .mobile-search-container {
+          width: 100%;
+          margin-top: 0.5rem;
+        }
+
+        .navbar-content {
+          display: flex;
+          width: 100%;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        body {
+          padding-top: 120px;
+        }
+      }
+
+      @media (min-width: 993px) {
+        .mobile-only {
+          display: none !important;
+        }
+      }
+
+      /* Main Layout */
       body {
         padding-top: 80px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
 
-      /* Mobile menu styling */
-      @media (max-width: 992px) {
-        .navbar-nav {
-          padding-top: 1rem;
-        }
-
-        .nav-item {
-          height: auto;
-          padding: 0.5rem 0;
-        }
-
-        .search-form {
-          margin: 1rem 0;
-        }
+      main {
+        flex: 1;
       }
 
+      /* Add this new style for account dropdown */
+      .account-dropdown .dropdown-toggle::after {
+        display: none; /* Remove default caret */
+      }
+
+      .account-dropdown .dropdown-menu {
+        display: block !important;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        pointer-events: none;
+        background-color: #2c3e50;
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+
+      .account-dropdown .dropdown-item {
+        color: #ecf0f1;
+        padding: 0.5rem 1rem;
+      }
+
+      .account-dropdown .dropdown-item:hover {
+        background-color: #3498db;
+        color: white;
+      }
+
+      /* Adjust navbar spacing */
+      .navbar-content {
+        display: flex;
+        width: 100%;
+        align-items: center;
+      }
+
+      /* Make navbar items align perfectly */
+      .navbar-content {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* Profile image in dropdown */
+      .account-dropdown .account-img {
+        width: 32px;
+        height: 32px;
+        border: 2px solid rgba(255,255,255,0.3);
+      }
+
+      /* Better dropdown positioning */
+      .dropdown-menu-end {
+        right: 0;
+        left: auto;
+      }
+
+      /* Nested dropdown styles */
+      .dropdown-submenu .dropdown-menu {
+        position: absolute;
+        left: 100%;
+        top: 0;
+        margin-top: 0;
+        margin-left: 0.125rem;
+      }
+
+      .dropdown-submenu:hover .dropdown-menu {
+        display: block;
+      }
+
+      /* Ensure dropdowns stay visible when needed */
+      .dropdown-menu.show {
+        display: block;
+      }
+
+      .account-dropdown .dropdown-menu.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: all;
+      }
+
+      /* Fix for dropdown positioning */
+      .dropdown-menu-end {
+        right: 0;
+        left: auto !important;
+      }
+
+      /* Language submenu positioning */
+      .dropdown-submenu .dropdown-menu {
+        position: absolute;
+        top: 0 !important;
+        left: 100% !important;
+        margin-top: 0 !important;
+        margin-left: 0.1rem !important;
+      }
 
     </style>
 
-   <!-- <script src="https://cdn.ckeditor.com/4.25.1-lts/standard/ckeditor.js"></script>-->
-   <!-- <script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script>-->
     <script src="https://cdn.ckeditor.com/ckeditor5/41.3.1/classic/ckeditor.js"></script>
-
     {% endblock %}
   </head>
-
 
   <body>
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark fixed-top" id="mainNav">
       <div class="container">
-        <a class="navbar-brand" href="/">{{ _("Get Started") }}</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarResponsive">
-          <span class="navbar-toggler-icon"></span>
-        </button>
+        <div class="navbar-content">
+          <!-- Brand/Get Started -->
+          <a class="navbar-brand" href="/">{{ _("Get Started") }}</a>
 
-        <div class="collapse navbar-collapse" id="navbarResponsive">
+          <!-- Home Link -->
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
               <a class="nav-link" href="{{ url_for('get_all_posts') }}">{{ _("Home") }}</a>
             </li>
-            {% if not current_user.is_authenticated %}
+          </ul>
+
+          <!-- Search Bar -->
+          <form class="search-form" method="GET" action="{{ url_for('search_by_author') }}">
+            <input class="form-control"
+                   type="search"
+                   name="query"
+                   placeholder="{{ _('Search author...') }}"
+                   aria-label="Search"
+                   required>
+            <button class="btn search-btn" type="submit">
+              <i class="fas fa-search"></i>
+            </button>
+          </form>
+
+
+
+          <!-- Account Dropdown (Desktop) -->
+          {% if current_user.is_authenticated %}
+          <div class="dropdown account-dropdown ms-2 desktop-only">
+            <button class="btn btn-link nav-link dropdown-toggle"
+                    type="button"
+                    id="accountDropdown"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+              <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 30) }}"
+                   class="rounded-circle account-img">
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+              <li>
+                <a class="dropdown-item" href="{{ url_for('account') }}" >
+                  <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 30) }}"
+           class="rounded-circle account-img">
+                  <span>{{ _("Account") }}</span>
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('notification_preferences') }}">
+                  <i class="fas fa-bell me-2"></i>{{ _("Notifications") }}
+                </a>
+              </li>
+              <li class="dropdown-submenu">
+                <a class="dropdown-item dropdown-toggle" href="#">
+                  <i class="fas fa-language me-2"></i>{{ _("Language") }} ({{ session.get('lang', 'en')|upper }})
+                </a>
+                <ul class="dropdown-menu">
+                  {% for code, name in config['LANGUAGES'].items() %}
+                    <li>
+                      <a class="dropdown-item {% if session.get('lang', 'en') == code %}active{% endif %}"
+                        href="{{ url_for('change_language', language=code) }}">
+                        {{ name }} ({{ code|upper }})
+                      </a>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </li>
+              <li><hr class="dropdown-divider"></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('logout') }}">
+                  <i class="fas fa-sign-out-alt me-2"></i>{{ _("Log Out") }}
+                </a>
+              </li>
+            </ul>
+          </div>
+          {% else %}
+          <div class="desktop-only">
+            <a class="btn btn-outline-light ms-2" href="{{ url_for('login') }}">{{ _("Login") }}</a>
+            <a class="btn btn-primary ms-2" href="{{ url_for('register') }}">{{ _("Register") }}</a>
+          </div>
+          {% endif %}
+
+          <!-- Mobile Menu Button -->
+          <button class="navbar-toggler mobile-only ms-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileDrawer">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+        </div>
+      </div>
+    </nav>
+
+
+    <!-- Mobile Drawer Menu -->
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="mobileDrawer" aria-labelledby="mobileDrawerLabel">
+      <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="mobileDrawerLabel">Menu</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+      </div>
+      <div class="offcanvas-body">
+        <ul class="nav flex-column">
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('get_all_posts') }}">{{ _("Home") }}</a>
+          </li>
+
+          {% if current_user.is_authenticated %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('login') }}">{{ _("Login") }}</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('register') }}">{{ _("Register") }}</a>
-            </li>
-            {% else %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('logout') }}">{{ _("Log Out") }}</a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link account-section" href="{{ url_for('account') }}">
-                <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 30) }}"
-                     class="rounded-circle account-img">
-                <span>{{ _("Account") }}</span>
+              <a class="nav-link" href="{{ url_for('account') }}">
+                <div class="account-section">
+                  <img src="{{ url_for('static', filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(current_user.email, 30) }}"
+                       class="rounded-circle account-img">
+                  <span>{{ _("Account") }}</span>
+                </div>
               </a>
             </li>
             <li class="nav-item">
@@ -163,64 +419,150 @@
                 <span>{{ _("Notifications") }}</span>
               </a>
             </li>
-            {% endif %}
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('about') }}">{{ _("About") }}</a>
+              <a class="nav-link" href="{{ url_for('logout') }}">{{ _("Log Out") }}</a>
+            </li>
+          {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{{ url_for('login') }}">{{ _("Login") }}</a>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('contact') }}">{{ _("Contact") }}</a>
+              <a class="nav-link" href="{{ url_for('register') }}">{{ _("Register") }}</a>
             </li>
-          </ul>
+          {% endif %}
 
-          <!-- Search Form -->
-          <form class="d-flex search-form" method="GET" action="{{ url_for('search_by_author') }}">
-            <input class="form-control form-control-sm me-2"
-                   type="search"
-                   name="query"
-                   placeholder="{{ _('Search author...') }}"
-                   aria-label="Search"
-                   required>
-            <button class="btn search-btn" type="submit">
-              {{ _("Search") }}
-            </button>
-          </form>
-
-          <!-- Language Selection -->
-          <div class="dropdown language-dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                    type="button"
-                    id="languageDropdown"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false">
-             <!-- {{ get_locale()|upper  }}-->
-              {{ config['LANGUAGES'].get(session.get('lang', 'en'), 'English') }}
-            </button>
-            <ul class="dropdown-menu" aria-labelledby="languageDropdown">
+          <li class="nav-item dropdown mt-2">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+              {{ _("Language") }} ({{ session.get('lang', 'en')|upper }})
+            </a>
+            <ul class="dropdown-menu">
               {% for code, name in config['LANGUAGES'].items() %}
                 <li>
-                  <a class="dropdown-item
-                  {% if session.get('lang', 'en') == code %}
-                  active
-                  {% endif %}"
+                  <a class="dropdown-item {% if session.get('lang', 'en') == code %}active{% endif %}"
                     href="{{ url_for('change_language', language=code) }}">
                     {{ name }} ({{ code|upper }})
                   </a>
                 </li>
               {% endfor %}
             </ul>
-          </div>
-        </div>
+          </li>
+        </ul>
       </div>
-    </nav>
+    </div>
 
-<!-- Main content block -->
+    <!-- Main Content -->
     <main class="container">
-       {% block content %}{% endblock %}
+
+      {% block content %}{% endblock %}
     </main>
+
 
     {% block scripts %}
     {{ bootstrap.load_js() }}
-    {% endblock %}
-  </body>
 
+
+     <script>
+      // Enhanced account dropdown initialization
+      function initAccountDropdown() {
+        const accountToggle = document.querySelector('.account-dropdown .dropdown-toggle');
+        if (!accountToggle) return;
+
+        // Debugging - log current state
+        console.log('Initializing account dropdown...');
+
+        // Dispose existing instance if any
+        const existing = bootstrap.Dropdown.getInstance(accountToggle);
+        if (existing) {
+          console.log('Found existing dropdown instance - disposing');
+          existing.dispose();
+        }
+
+        // Create new dropdown instance with proper config
+        try {
+          const dropdown = new bootstrap.Dropdown(accountToggle, {
+            autoClose: 'inside',
+            boundary: 'viewport',
+            popperConfig: {
+              placement: 'bottom-end'
+            }
+          });
+          console.log('New dropdown instance created:', dropdown);
+        } catch (e) {
+          console.error('Dropdown initialization failed:', e);
+        }
+
+        // Enhanced language submenu handling
+        const languageToggle = document.querySelector('.dropdown-submenu .dropdown-toggle');
+        if (languageToggle) {
+          languageToggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const submenu = this.nextElementSibling;
+            submenu.classList.toggle('show');
+            console.log('Language submenu toggled:', submenu.classList.contains('show'));
+
+            // Close other open submenus if any
+            document.querySelectorAll('.dropdown-submenu .dropdown-menu').forEach(menu => {
+              if (menu !== submenu) menu.classList.remove('show');
+            });
+          });
+        }
+      }
+
+      // Initialize with multiple triggers
+      function initializeAll() {
+        console.log('Running full initialization...');
+        initAccountDropdown();
+
+        // Additional safety checks
+        const accountMenu = document.querySelector('.account-dropdown .dropdown-menu');
+        if (accountMenu) {
+          accountMenu.style.pointerEvents = 'auto';
+          accountMenu.style.position = 'absolute'; // Ensure proper positioning
+        }
+      }
+
+      // Standard initialization points
+      document.addEventListener('DOMContentLoaded', initializeAll);
+      window.addEventListener('load', initializeAll);
+
+      // Turbo/Turbolinks support
+      if (typeof Turbo !== 'undefined') {
+        document.addEventListener('turbo:load', initializeAll);
+        document.addEventListener('turbo:render', initializeAll);
+      }
+
+      // SPA framework support (if using)
+      if (window.history && window.history.pushState) {
+        const originalPushState = history.pushState;
+        history.pushState = function() {
+          originalPushState.apply(this, arguments);
+          setTimeout(initializeAll, 100);
+        };
+      }
+
+      // Final fallback - reinitialize periodically
+      const initInterval = setInterval(() => {
+        if (!document.querySelector('.account-dropdown .dropdown-menu.show')) {
+          initializeAll();
+        }
+      }, 1000);
+
+      // Cleanup interval when dropdown is working
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('.account-dropdown')) {
+          clearInterval(initInterval);
+        }
+      });
+
+      // Debugging event listeners
+      document.querySelector('.account-dropdown .dropdown-toggle')?.addEventListener('click', function() {
+        console.log('Account dropdown clicked - current state:',
+          this.nextElementSibling.classList.contains('show'));
+      });
+    </script>
+
+    {% endblock %}
+
+  </body>
 </html>

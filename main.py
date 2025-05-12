@@ -47,6 +47,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 
+
+
 # Initialize extensions
 csrf = CSRFProtect(app)
 bootstrap = Bootstrap5(app)
@@ -81,6 +83,24 @@ inspect_connection_string()
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+############################################################
+#db.init_app(app)
+
+'''def init_db():
+    with app.app_context():
+        if not os.path.exists(db_path):
+            try:
+                db.create_all()
+                print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
+            except Exception as e:
+                print(f"❌ Database operation failed: {str(e)}")
+
+# Call this directly so it runs during both local and Render deploys
+init_db()'''
+###########################################################
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -170,6 +190,24 @@ class BlogPost(db.Model):
     @property
     def like_count(self):
         return db.session.query(Like).filter_by(post_id=self.id).count()
+
+###############################################
+
+def init_db():
+    with app.app_context():
+        if not os.path.exists(db_path):
+            try:
+                db.create_all()
+                print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
+            except Exception as e:
+                print(f"❌ Database operation failed: {str(e)}")
+
+# Call this directly so it runs during both local and Render deploys
+init_db()
+
+
+##############################################
+
 
 
 class User(UserMixin, db.Model):
@@ -702,6 +740,7 @@ def like_post(post_id):
  # Use a decorator so only an admin user can edit a post
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 @admin_only
+#@login_required
 def edit_post(post_id):
     post = db.get_or_404(BlogPost, post_id)
     edit_form = CreatePostForm(
@@ -1057,7 +1096,7 @@ def contact():
 # ... (include all other routes from your original code)
 
 if __name__ == '__main__':
-    with app.app_context():
+    '''with app.app_context():
         try:
             os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
 
@@ -1068,6 +1107,6 @@ if __name__ == '__main__':
             print(f"Error type: {type(e).__name__}")
             import traceback
 
-            traceback.print_exc()
+            traceback.print_exc() '''
 
     app.run(debug=False, port=5001)

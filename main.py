@@ -193,7 +193,7 @@ class BlogPost(db.Model):
 
 ###############################################
 
-def init_db():
+'''def init_db():
     with app.app_context():
         if not os.path.exists(db_path):
             try:
@@ -202,8 +202,7 @@ def init_db():
             except Exception as e:
                 print(f"❌ Database operation failed: {str(e)}")
 
-# Call this directly so it runs during both local and Render deploys
-init_db()
+# Call this directly so it runs during both local and Render deploys '''
 
 
 ##############################################
@@ -256,6 +255,21 @@ class Like(db.Model):
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),)
+
+###################################################
+
+def init_db():
+    with app.app_context():
+        try:
+            db.create_all()
+            print(f"✅ Database (and tables) ensured at {app.config['SQLALCHEMY_DATABASE_URI']}")
+        except Exception as e:
+            print(f"❌ Database operation failed: {str(e)}")
+
+init_db()
+
+###################################################
+
 
 
 # Helper Functions

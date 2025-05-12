@@ -292,6 +292,15 @@
         margin-left: 0.1rem !important;
       }
 
+      .btn-md-custom {
+        padding: 8px 15px;        /* smaller than default, bigger than btn-sm */
+        font-size: 0.8rem;         /* slightly smaller text */
+        line-height: 1.6;
+        border-radius: 4px; /* optional: soften corners */
+
+      }
+
+
     </style>
 
     <script src="https://cdn.ckeditor.com/ckeditor5/41.3.1/classic/ckeditor.js"></script>
@@ -377,8 +386,8 @@
           </div>
           {% else %}
           <div class="desktop-only">
-            <a class="btn btn-outline-light ms-2" href="{{ url_for('login') }}">{{ _("Login") }}</a>
-            <a class="btn btn-primary ms-2" href="{{ url_for('register') }}">{{ _("Register") }}</a>
+            <a class="btn btn-outline-light btn-md-custom ms-2" href="{{ url_for('login') }}">{{ _("Login") }}</a>
+            <a class="btn btn-primary btn-md-custom ms-2" href="{{ url_for('register') }}">{{ _("Register") }}</a>
           </div>
           {% endif %}
 

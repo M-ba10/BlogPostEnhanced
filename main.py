@@ -934,27 +934,27 @@ def notification_preferences():
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 @login_required
 def edit_comment(comment_id):
-    comment = Comment.query.get_or_404(comment_id)
+    comment = Comment.query.get_or_404(Comment, comment_id)
 
     # Check if user is authorized to edit this comment
-    if comment.author != current_user.id and current_user.id != 1:  # User is not author or admin
+    if comment.comment_author.id != current_user.id and current_user.id != 1:  # User is not author or admin
         return jsonify({'error': 'Unauthorized'}), 403
 
     # Get data from request
-    data = request.get_json()
-    text = data.get('text', '').strip()
-    if not text:
-        return jsonify({'error': 'Comment cannot be empty'}), 400
+    new_text = request.json.get('text').strip()
+   # text = data.get('text', '').strip()
+    if not new_text:
+        return jsonify({'success': False,  'message': 'Comment cannot be empty'}), 400
 
     # Update comment
-    comment.text = text
+    comment.text = new_text
     comment.edited = True
     comment.edited_at = datetime.now(timezone.utc)
     db.session.commit()
 
     return jsonify({
         'success': True,
-        'text': text,
+        'text': new_text,
         'edited_at': comment.edited_at.strftime('%B %d, %Y at %H:%M')
     })
 
@@ -963,10 +963,10 @@ def edit_comment(comment_id):
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required
 def delete_comment(comment_id):
-    comment = Comment.query.get_or_404(comment_id)
+    comment = Comment.query.get_or_404(Comment, comment_id)
 
     # Check if user is authorized to delete this comment
-    if comment.author != current_user.id and current_user.id != 1:  # User is not author or admin
+    if comment.comment_author.id != current_user.id and current_user.id != 1:  # User is not author or admin
         return jsonify({'error': 'Unauthorized'}), 403
 
     # Delete comment
@@ -976,7 +976,7 @@ def delete_comment(comment_id):
     return jsonify({'success': True})
 
 # reply comment
-@app.route('/post/<int:post_id>/reply', methods=['POST'])
+'''@app.route('/post/<int:post_id>/reply', methods=['POST'])
 @login_required
 def reply_comment(post_id):
     if request.method == 'POST':
@@ -1007,6 +1007,76 @@ def reply_comment(post_id):
 
         flash('Your reply has been posted!', 'success')
         return redirect(url_for('show_post', post_id=post_id))
+'''
+
+
+@app.route('/post/<int:post_id>/reply', methods=['POST'])
+@login_required
+def reply_comment(post_id):
+    # Get form data
+    reply_text = request.form.get('reply_text', '').strip()
+    parent_comment_id = request.form.get('parent_comment_id')
+
+    # Validate required fields
+    if not reply_text:
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'success': False, 'message': 'Reply text cannot be empty'}), 400
+
+        flash('Reply text cannot be empty', 'danger')
+        return redirect(url_for('show_post', post_id=post_id))
+
+    '''if not parent_comment_id:
+        if request.accept_mimetypes.accept_json:
+            return jsonify({'success': False, 'message': 'Parent comment missing'}), 400
+        flash('Invalid reply target', 'danger')
+        return redirect(url_for('show_post', post_id=post_id)) '''
+
+    try:
+        # Get parent comment
+        parent_comment = db.get_or_404(Comment, parent_comment_id)
+
+        # Create new reply
+        new_reply = Comment(
+            text=reply_text,
+            comment_author=current_user,
+            parent_post_id=post_id,
+            parent_id=parent_comment_id,
+            created_at=datetime.now(timezone.utc)
+        )
+
+        db.session.add(new_reply)
+        db.session.commit()
+
+        # Send notification
+        send_reply_notification(new_reply, parent_comment)
+
+        # Handle AJAX requests
+        if request.accept_mimetypes.accept_json:
+            return jsonify({
+                'success': True,
+                'message': 'Reply posted successfully',
+                'comment_id': new_reply.id,
+                'html': render_template('includes/reply.html', reply=new_reply)  # Optional
+            })
+
+        # Regular form submission
+        flash('Your reply has been posted!', 'success')
+        return redirect(url_for('show_post', post_id=post_id, _anchor=f'comment-{new_reply.id}'))
+
+    except Exception as e:
+        app.logger.error(f"Error posting reply: {str(e)}")
+
+        if request.accept_mimetypes.accept_json:
+            return jsonify({
+                'success': False,
+                'message': 'Error posting reply'
+            }), 500
+
+        flash('Error posting reply', 'danger')
+        return redirect(url_for('show_post', post_id=post_id))
+
+
+
 
 
 # If you want to implement tags, you'll need a route for them too

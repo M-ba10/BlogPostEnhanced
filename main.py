@@ -24,6 +24,8 @@ import smtplib
 from email.mime.text import MIMEText
 import os
 from dotenv import load_dotenv
+import requests
+
 
 
 
@@ -58,47 +60,127 @@ login_manager.login_view = 'login'
 
 
 
-'''def inspect_connection_string():
-    # Get the raw connection string
-    uri = "postgresql://flask_user:simplepassword123@localhost:5432/blog_flask_prod"
-    print("Raw connection string as bytes:")
-    print(uri.encode('utf-8').hex())
 
-    # Check each component individually
-    username = "flask_user"
-    password = "simplepassword123"
-    host = "localhost"
-    dbname = "blog_flask_prod"
-
-    print(f"Username as bytes: {username.encode('utf-8').hex()}")
-    print(f"Password as bytes: {password.encode('utf-8').hex()}")
-    print(f"Host as bytes: {host.encode('utf-8').hex()}")
-    print(f"Database name as bytes: {dbname.encode('utf-8').hex()}")
-
-inspect_connection_string()
-
-
-'''
 
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
-############################################################
-#db.init_app(app)
 
-'''def init_db():
-    with app.app_context():
-        if not os.path.exists(db_path):
-            try:
-                db.create_all()
-                print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
-            except Exception as e:
-                print(f"❌ Database operation failed: {str(e)}")
 
-# Call this directly so it runs during both local and Render deploys
-init_db()'''
-###########################################################
+def get_weather(location="London"):
+    try:
+        response = requests.get(
+            'https://api.openweathermap.org/data/2.5/weather',
+            params={
+                'q': location,
+                'appid': os.getenv('OPENWEATHER_API_KEY'),
+                'units': 'metric',
+                'lang': get_locale()  # Use current language from Babel
+            },
+            timeout=5  # Add timeout to prevent hanging
+        )
+
+        # Check for "city not found" type errors
+        if response.status_code == 404:
+            return {'error': _('City not found. Please try another location.')}
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Handle case where city is not properly returned
+        if not data.get('name'):
+            return {'error': _('Invalid location data received')}
+
+        return {
+            'temp': data['main']['temp'],
+            'description': data['weather'][0]['description'].capitalize(),
+            'icon': data['weather'][0]['icon'],
+            'city': data['name'],
+            'country': data['sys'].get('country', ''),
+            'humidity': data['main']['humidity'],
+            'wind_speed': data['wind']['speed'],
+            'feels_like': data['main']['feels_like']  # Added for better UX
+        }
+
+    except requests.exceptions.Timeout:
+        return {'error': _('Weather service timeout. Please try again later.')}
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Weather API error: {str(e)}")
+        return {'error': _('Failed to fetch weather data. Please try again later.')}
+    except (KeyError, IndexError) as e:
+        app.logger.error(f"Weather data parsing error: {str(e)}")
+        return {'error': _('Invalid weather data received')}
+
+
+############################# WEATHER service ###############################
+def get_weather_by_coords(lat, lon):
+    try:
+        response = requests.get(
+            'https://api.openweathermap.org/data/2.5/weather',
+            params={
+                'lat': lat,
+                'lon': lon,
+                'appid': os.getenv('OPENWEATHER_API_KEY'),
+                'units': 'metric',
+                'lang': get_locale()
+            },
+            timeout=5
+        )
+
+        if response.status_code == 404:
+            return {'error': _('Location not found')}
+
+        response.raise_for_status()
+        data = response.json()
+
+        return {
+            'temp': data['main']['temp'],
+            'description': data['weather'][0]['description'].capitalize(),
+            'icon': data['weather'][0]['icon'],
+            'city': data['name'],
+            'country': data['sys'].get('country', ''),
+            'humidity': data['main']['humidity'],
+            'wind_speed': data['wind']['speed'],
+            'feels_like': data['main']['feels_like'],
+            'by_location': True  # Flag to show it's from geolocation
+        }
+
+    except Exception as e:
+        app.logger.error(f"Coord weather error: {str(e)}")
+        return {'error': str(e)}
+
+
+@app.route('/api/weather', methods=['GET', 'POST'])
+def weather_api():
+    if request.method == 'POST':
+        city = request.form.get('city')
+        if city:
+            session['weather_city'] = city
+        return jsonify({"success": True})
+
+    # Check for coordinates first
+    lat = request.args.get('lat')
+    lon = request.args.get('lon')
+    if lat and lon:
+        try:
+            weather = get_weather_by_coords(lat, lon)
+            if 'error' not in weather:
+                return jsonify(weather)
+        except Exception as e:
+            app.logger.error(f"Coord weather error: {str(e)}")
+
+    # Fallback to session city or default
+    city = request.args.get('city') or session.get('weather_city') or 'London'
+    weather = get_weather(city)
+
+    if 'error' in weather:
+        return jsonify({'error': weather['error']}), 400
+
+    return jsonify(weather)
+
+
 
 
 
@@ -1075,82 +1157,6 @@ def reply_comment(post_id):
         flash('Error posting reply', 'danger')
         return redirect(url_for('show_post', post_id=post_id))
 
-
-
-
-
-# If you want to implement tags, you'll need a route for them too
-@app.route('/tag/<tag_name>')
-def tag(tag_name):
-    tag = Tag.query.filter_by(name=tag_name).first_or_404()
-    posts = tag.posts.order_by(BlogPost.date.desc()).all()
-    sort = request.args.get('sort', 'newest')
-
-    is_subscribed = False
-    if current_user.is_authenticated:
-        is_subscribed = tag in current_user.subscribed_tags
-
-    #sorting logic
-    base_query = (db.session.query(BlogPost)
-                   .join(post_tags)
-                   .join(Tag)
-                   .filter(Tag.name == tag_name)
-                   .options(joinedload(BlogPost.author)))
-
-    if sort == "oldest":
-        posts = base_query.order_by(BlogPost.date.sec()).all()
-    elif sort == 'popular':
-        posts = sorted(base_query.all(), key=lambda p: p.like_count, reverse=True)
-    else:  # newest
-        posts = base_query.order_by(BlogPost.date.desc()).all()
-
-
-    return render_template('tag.html',
-                           tag=tag,
-                           posts=posts,
-                           sort=sort,
-                           is_subscribed=is_subscribed,
-                           get_gravatar_url=get_gravatar_url,
-                           calculate_reading_time=calculate_reading_time)
-
-
-@app.route('/subscribe_to_tag/<tag_name>', methods=['POST'])
-@login_required
-def subscribe_to_tag(tag_name):
-    tag = Tag.query.filter_by(name=tag_name).first_or_404()
-
-    if tag in current_user.subscribed_tags:
-        current_user.subscribed_tags.remove(tag)
-        action = 'unsubscribe'
-    else:
-        current_user.subscribed_tags.append(tag)
-        action = 'subscribe'
-
-    db.session.commit()
-    return (jsonify({'success': True, 'action': action}))
-
-
-@app.context_processor
-def inject_tags():
-    # Get top 20 most used tags with counts
-    popular_tags = db.session.query(
-        Tag,
-        db.func.count(post_tags.c.post_id).label('count')
-    ).join(post_tags).group_by(Tag).order_by(db.desc('count')).limit(20).all()
-
-    # Add size classification (for tag cloud)
-    tags_with_size = []
-    if popular_tags:
-        max_count = popular_tags[0][1]
-        for tag, count in popular_tags:
-            size = min(5, max(1, round(5 * count / max_count)))
-            tags_with_size.append({
-                'name': tag.name,
-                'size': size,
-                'count': count
-            })
-
-    return {'popular_tags': tags_with_size}
 
 
 @app.route("/about")

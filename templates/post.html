@@ -306,8 +306,8 @@
                         {{ _("Reply") }}
                       </button>
                     {% endif %}
-
-                    {% if current_user.is_authenticated and (current_user.id == comment.comment_author.id or current_user.id == 1) %}
+                        <!-- (current_user.id == comment.comment_author.id or current_user.id == 1)-->
+                    {% if current_user.is_authenticated and current_user.id == comment.comment_author.id  %}
                       <button class="btn btn-sm btn-outline-primary edit-comment-btn ms-1"
                               data-comment-id="{{ comment.id }}"
                               data-comment-text="{{ comment.text|escape }}">
@@ -355,8 +355,8 @@
                         <div class="reply-body">
                           {{ reply.text|safe }}
                         </div>
-
-                        {% if current_user.is_authenticated and (current_user.id == reply.comment_author.id or current_user.id == 1) %}
+                               <!-- (current_user.id == reply.comment_author.id or current_user.id == 1) -->
+                        {% if current_user.is_authenticated and current_user.id == reply.comment_author.id  %}
                           <div class="reply-actions mt-2">
                             <button class="btn btn-sm btn-outline-primary edit-comment-btn"
                                     data-comment-id="{{ reply.id }}"
@@ -501,7 +501,7 @@
             const commentId = e.target.getAttribute('data-comment-id');
             const newText = document.getElementById(`edit-textarea-${commentId}`).value.trim();
 
-            fetch(/comment/${commentId}/edit, {
+            fetch(`/comment/${commentId}/edit`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

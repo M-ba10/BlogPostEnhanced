@@ -19,16 +19,7 @@
             <i class="far fa-clock"></i> {{ reading_time if reading_time else "5" }} {{ _("min read") }}
           </div>
 
-          <!-- Post tags -->
-          {% if post.tags %}
-          <div class="post-tags mt-3">
-            {% for tag in post.tags %}
-              <a href="{{ url_for('tag', tag_name=tag.name) }}" class="post-tag badge bg-secondary text-decoration-none me-1">
-                <i class="fas fa-tag"></i> {{ tag.name }}
-              </a>
-            {% endfor %}
-          </div>
-          {% endif %}
+
 
           <img class="rounded-circle article-img"
              src="{{ url_for('static', filename='profile_pics/' + post.author.profile_image)
@@ -186,7 +177,7 @@
 
 <!-- Table of contents -->
 <div class="toc mb-4">
-  <div class="toc-title">{{ _("Table of Contents") }}</div>
+  <div class="toc-title">{{ _("Table of Contents: ") }}</div>
   <div id="tocContent">
     <!-- This will be populated by JavaScript -->
   </div>
@@ -220,7 +211,7 @@
         </div>
 
         <!-- Edit Post button (admin only) -->
-        {% if current_user.id == 1 %}
+        {% if current_user.is_authenticated and current_user.id = post.author.id %}
         <div class="d-flex justify-content-end mb-4">
           <a class="btn btn-primary float-right" href="{{url_for('edit_post', post_id=post.id)}}">
             {{ _("Edit Post") }}
@@ -440,7 +431,7 @@
         if (e.target.classList.contains('reply-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            const form = document.getElementById(reply-form-${commentId});
+            const form = document.getElementById(`reply-form-${commentId}`);
             const isOpen = form.style.display === 'block';
 
             // Close all other forms
@@ -496,19 +487,19 @@
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
             const commentText = e.target.getAttribute('data-comment-text');
-            const contentDiv = document.getElementById(comment-content-${commentId});
-            const editForm = document.getElementById(edit-form-${commentId});
+            const contentDiv = document.getElementById(`comment-content-${commentId}`);
+            const editForm = document.getElementById(`edit-form-${commentId}`);
 
             contentDiv.style.display = 'none';
             editForm.style.display = 'block';
-            document.getElementById(edit-textarea-${commentId}).value = commentText;
+            document.getElementById(`edit-textarea-${commentId}`).value = commentText;
         }
 
         // Save edit
         if (e.target.classList.contains('save-edit-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            const newText = document.getElementById(edit-textarea-${commentId}).value.trim();
+            const newText = document.getElementById(`edit-textarea-${commentId}`).value.trim();
 
             fetch(/comment/${commentId}/edit, {
                 method: 'POST',
@@ -532,8 +523,8 @@
         if (e.target.classList.contains('cancel-edit-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            document.getElementById(comment-content-${commentId}).style.display = 'block';
-            document.getElementById(edit-form-${commentId}).style.display = 'none';
+            document.getElementById(`comment-content-${commentId}`).style.display = 'block';
+            document.getElementById(`edit-form-${commentId}`).style.display = 'none';
         }
     });
 
@@ -544,7 +535,7 @@
             const commentId = e.target.getAttribute('data-comment-id');
 
             if (confirm('Are you sure you want to delete this comment?')) {
-                fetch(/comment/${commentId}/delete, {
+                fetch(`/comment/${commentId}/delete`, {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': '{{ csrf_token() }}'
@@ -553,7 +544,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        document.getElementById(comment-${commentId}).remove();
+                        document.getElementById(`comment-${commentId}`).remove();
                     }
                 });
             }
@@ -568,7 +559,7 @@
           likeButton.addEventListener('click', function() {
               const postId = this.getAttribute('data-post-id');
 
-              fetch(/like/${postId}, {
+              fetch(`/like/${postId}`, {
                   method: 'POST',
                   headers: {
                       'Content-Type': 'application/json',

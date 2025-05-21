@@ -21,6 +21,47 @@
   </div>
 </header>
 
+<!-- Weather Flash Screen (hidden by default) -->
+
+<div id="weatherFlashScreen" class="position-fixed top-0 start-0 w-100 h-100 bg-white" style="z-index: 9999; display: none;">
+  <div class="container h-100">
+    <div class="row h-100 justify-content-center align-items-center">
+      <div class="col-lg-6">
+        <div class="card shadow-lg border-0">
+          <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+              <h3 class="mb-0"><i class="fas fa-cloud-sun me-2"></i> Weather Details</h3>
+              <button id="closeWeatherFlash" class="btn btn-sm btn-light">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body text-center py-4">
+            <div id="flash-weather-content">
+              <div class="spinner-border text-primary" role="status"></div>
+              <p class="mt-3">Loading weather data...</p>
+            </div>
+          </div>
+          <!-- Replace the button in your weather flash screen with this link -->
+          <div class="weather-flash-footer">
+            <a href="{{ url_for('get_all_posts') }}" class="btn btn-primary" data-reset-weather="true">
+              <i class="fas fa-arrow-left me-2"></i> Back to Main Screen
+            </a>
+          </div>
+          <!--
+          <div class="card-footer bg-light text-center">
+            <button id="backToMainFromFlash" class="btn btn-primary">
+              <i class="fas fa-arrow-left me-2"></i> Back to Main Screen
+            </button>
+          </div>
+          -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Main Content-->
 <div class="container px-4 px-lg-5">
   <div class="row gx-4 gx-lg-5 justify-content-center">
@@ -59,9 +100,6 @@
             </span>
             {% endif %}
           </div>
-
-
-
         </div>
       </div>
       {% if not loop.last %}
@@ -84,34 +122,31 @@
       </div>
     </div>
 
-      <!-- Weather Widget (updated) -->
-      <div class="col-lg-4 d-none d-lg-block">
-        <div class="card mb-4 shadow-sm border-0">
-          <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="fas fa-temperature-high me-2"></i> {{ _("Local Weather") }}</h5>
-            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#weatherModal">
-              <i class="fas fa-edit"></i>
-            </button>
+    <!-- Weather Widget -->
+    <div class="col-lg-4 d-none d-lg-block">
+      <div class="card mb-4 shadow-sm border-0">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0"><i class="fas fa-temperature-high me-2"></i> {{ _("Local Weather") }}</h5>
+          <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#weatherModal">
+            <i class="fas fa-edit"></i>
+          </button>
+        </div>
+        <div class="card-body text-center">
+          <div id="sidebar-weather">
+            <div class="spinner-border text-primary" role="status"></div>
           </div>
-          <div class="card-body text-center">
-            <div id="sidebar-weather">
-              <div class="spinner-border text-primary" role="status"></div>
-            </div>
-            <small class="text-muted" id="weather-location">Detecting your location...</small>
-            <div class="mt-2">
-              <a href="#" id="use-current-location" class="small text-primary">
-                <i class="fas fa-location-arrow"></i> Use my current location
-              </a>
-            </div>
+          <small class="text-muted" id="weather-location">Detecting your location...</small>
+          <div class="mt-2">
+            <a href="#" id="use-current-location" class="small text-primary">
+              <i class="fas fa-location-arrow"></i> Use my current location
+            </a>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 
-  <!-- Add this modal at the bottom of your template -->
-  <!-- Weather Modal (updated) -->
+  <!-- Weather Modal -->
   <div class="modal fade" id="weatherModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -122,28 +157,17 @@
         <div class="modal-body">
           <form id="weatherForm">
             <div class="mb-3">
-
               <label class="form-label">City Name</label>
               <input type="text" class="form-control mb-3" id="weatherCity" placeholder="e.g. Paris, Tokyo">
-
-              <button type="submit" form="weatherForm" class="btn btn-primary me-2">Update</button>
+              <button type="submit" form="weatherForm" class="btn btn-primary me-2">Show Weather</button>
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
-
             </div>
           </form>
         </div>
-
-        <!-- <div class="modal-footer">
-          <button type="button" id="detect-location" class="btn btn-outline-primary me-auto">
-            <i class="fas fa-location-arrow"></i> Detect Location
-          </button>
-        </div> -->
-
       </div>
     </div>
   </div>
-
+</div>
 
 </div>
 
@@ -329,15 +353,190 @@
     margin-left: 0.5rem;
   }
 
+  /* Weather Flash Screen Styles */
+  #weatherFlashScreen {
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    z-index: 9999
+  }
+
+
+  #flash-weather-content .weather-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+  }
+
+  #flash-weather-content .temperature {
+    font-size: 3.5rem;
+    font-weight: 300;
+    line-height: 1;
+  }
+
+  #flash-weather-content .weather-description {
+    font-size: 1.5rem;
+    text-transform: capitalize;
+    margin-bottom: 1.5rem;
+  }
+
+  .weather-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+  }
+
+  .weather-detail-item:last-child {
+    border-bottom: none;
+  }
+
+  .weather-detail-label {
+    font-weight: 500;
+    color: #666;
+  }
+
+  .weather-detail-value {
+    font-weight: 600;
+  }
+
+  /* Animation for flash screen */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .weather-flash-animate {
+    animation: fadeIn 0.3s ease-out;
+  }
+  .no-scroll {
+    overflow: hidden !important;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+  }
+  #weatherFlashScreen .card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  #weatherFlashScreen .card-header {
+      border-radius: 0.5rem 0.5rem 0 0 !important;
+  }
+
+  #weatherFlashScreen .card-footer {
+      border-radius: 0 0 0.5rem 0.5rem !important;
+  }
+
+
+  .modal-backdrop.fade:not(.show) {
+      opacity: 0;
+  }
+
+  /* Ensure your flash screen has higher z-index than backdrops */
+  #weatherFlashScreen {
+      z-index: 1060 !important; /* Bootstrap backdrops use 1040-1050 */
+  }
+
+  .weather-flash-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+  }
+  .modal-backdrop {
+    transition: opacity 0.15s linear !important;
+  }
+
+
+   /*
+  .weather-flash-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1050;
+    display: none;
+  }
+
+  .weather-flash-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+  }
+
+  .weather-flash-content {
+    position: relative;
+    z-index: 1051;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 2rem;
+  }
+
+  .weather-flash-card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 600px;
+    overflow: hidden;
+  }
+
+  .weather-flash-header {
+    background: #0d6efd;
+    color: white;
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .weather-flash-body {
+    padding: 2rem;
+    text-align: center;
+  }
+
+  .weather-flash-footer {
+    padding: 1.5rem;
+    text-align: center;
+    background: #f8f9fa;
+  }
+
+  .btn-close-flash {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.5rem;
+  }
+
+  /* Body no-scroll class */
+  .body-no-scroll {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+  }
+  */
 
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function() {
+    // State variables
     let isLoading = false;
     let currentController = null;
+    let isFlashScreenOpen = false;
 
-    // 1. Shared weather display funct
+    // 1. Display weather data in either sidebar or flash screen
     function displayWeather(container, weather, source = 'manual') {
         if (!container) return;
 
@@ -346,30 +545,168 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        container.innerHTML = `
-            <div class="d-flex justify-content-center align-items-center">
-                <img src="https://openweathermap.org/img/wn/${weather.icon}@2x.png"
-                     alt="${weather.description}" style="height: 60px">
-                <div class="ms-3">
-                    <span class="h4">${Math.round(weather.temp)}°C</span>
-                    <div class="text-capitalize small">${weather.description}</div>
-                </div>
-            </div>
-            <div class="row mt-2 small text-muted">
-                <div class="col-6">Humidity: ${weather.humidity}%</div>
-                <div class="col-6">Wind: ${weather.wind_speed} m/s</div>
-            </div>
-            ${source === 'geo' ?
-              '<div class="text-end mt-2"><span class="weather-source-badge">Auto-detected</span></div>' : ''}
-        `;
+        // Format date and determine weather icon
+        const today = new Date().toLocaleDateString(undefined, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
 
+        const weatherIcons = {
+            '01': 'fa-sun',
+            '02': 'fa-cloud-sun',
+            '03': 'fa-cloud',
+            '04': 'fa-cloud',
+            '09': 'fa-cloud-rain',
+            '10': 'fa-cloud-rain',
+            '11': 'fa-bolt',
+            '13': 'fa-snowflake',
+            '50': 'fa-smog'
+        };
+        const iconCode = weather.icon.substring(0, 2);
+        const weatherIconClass = weatherIcons[iconCode] || 'fa-cloud';
+
+        // For sidebar display
+        if (container.id === 'sidebar-weather') {
+            container.innerHTML = `
+                <div class="d-flex justify-content-center align-items-center">
+                    <img src="https://openweathermap.org/img/wn/${weather.icon}@2x.png"
+                         alt="${weather.description}" style="height: 60px">
+                    <div class="ms-3">
+                        <span class="h4">${Math.round(weather.temp)}°C</span>
+                        <div class="text-capitalize small">${weather.description}</div>
+                    </div>
+                </div>
+                <div class="row mt-2 small text-muted">
+                    <div class="col-6">Humidity: ${weather.humidity}%</div>
+                    <div class="col-6">Wind: ${weather.wind_speed} m/s</div>
+                </div>
+                ${source === 'geo' ? '<div class="text-end mt-2"><span class="weather-source-badge">Auto-detected</span></div>' : ''}
+            `;
+        }
+        // For flash screen display
+        else if (container.id === 'flash-weather-content') {
+            container.innerHTML = `
+                <div class="weather-flash-animate">
+                    <h4 class="text-muted mb-3">${today}</h4>
+                    <div class="weather-icon text-primary">
+                        <i class="fas ${weatherIconClass}"></i>
+                    </div>
+                    <div class="temperature my-3">${Math.round(weather.temp)}°C</div>
+                    <div class="weather-description text-capitalize">${weather.description}</div>
+                    <div class="weather-details mt-4">
+                        ${[
+                            {label: 'Feels Like', value: `${Math.round(weather.feels_like)}°C`},
+                            {label: 'Humidity', value: `${weather.humidity}%`},
+                            {label: 'Wind Speed', value: `${weather.wind_speed} m/s`},
+                            {label: 'Pressure', value: `${weather.pressure} hPa`},
+                            {label: 'Visibility', value: `${(weather.visibility / 1000).toFixed(1)} km`}
+                        ].map(item => `
+                            <div class="weather-detail-item">
+                                <span class="weather-detail-label">${item.label}</span>
+                                <span class="weather-detail-value">${item.value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update location text
         const locationEl = document.getElementById('weather-location');
         if (locationEl) {
             locationEl.textContent = `${weather.city}${weather.country ? ', ' + weather.country : ''}`;
         }
     }
 
-    // 2. Geolocation functions with better error handling
+    // 2. Show weather flash screen
+    function showWeatherFlash(weather) {
+        const flashScreen = document.getElementById('weatherFlashScreen');
+        if (!flashScreen || isFlashScreenOpen) return;
+
+        // removing any existing backdrops first
+        hideWeatherFlash();
+
+        //Prevent bootstrap from creating a backdrop
+        if(typeof bootstrap != 'undefined' && bootstrap.Modal){
+           bootstrap.Modal.prototype._enforceFocus = function(){};
+        }
+
+        isFlashScreenOpen = true;
+
+        // Lock scrolling
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+
+        flashScreen.style.display = 'block';
+        displayWeather(document.getElementById('flash-weather-content'), weather);
+
+        // Add escape key listener
+        document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    // 3. Hide weather flash screen (with proper cleanup)
+    function hideWeatherFlash() {
+        const flashScreen = document.getElementById('weatherFlashScreen');
+        if (!flashScreen || !isFlashScreenOpen) return;
+
+        // Remove any leftover Bootstrap modal backdrops
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => {
+            backdrop.classList.remove('show');
+            setTimeout(() => backdrop.remove(), 150);
+        });
+
+        // Restore scrolling
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+
+        flashScreen.style.display = 'none';
+        document.removeEventListener('keydown', handleEscapeKey);
+        isFlashScreenOpen = false;
+
+        // Forcing a reflow to ensure clean up
+        void flashScreen.offsetHeight;
+    }
+
+    // 4. Handle escape key
+    function handleEscapeKey(e) {
+        if (e.key === 'Escape') hideWeatherFlash();
+    }
+
+
+
+    // 5. Handle home link click (with forced reload)
+    function handleHomeLinkClick(e) {
+        e.preventDefault();
+        hideWeatherFlash();
+
+        const homeUrl = e.currentTarget.href;
+
+        loadWeather().then(() => {
+
+           setTimeout(() => {
+              const separator= homeUrl.includes('?') ? '&' : '?';
+              window.location.href = homeUrl + separator + 'reset_weather=true&t=' + Date.now();
+
+           }, 300);
+
+        });
+
+        /* Force full page reload with cache busting
+        const homeUrl = e.currentTarget.href;
+        const separator = homeUrl.includes('?') ? '&' : '?';
+        window.location.href = homeUrl + separator + 't=' + Date.now(); */
+    }
+
+
+
+    // 6. Geolocation functions
     async function getCurrentPosition() {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
@@ -379,214 +716,155 @@ document.addEventListener('DOMContentLoaded', function() {
 
             navigator.geolocation.getCurrentPosition(
                 resolve,
-                error => {
-                    console.error('Geolocation error:', error);
-                    reject(new Error('Could not get your location'));
-                },
-                {
-                    enableHighAccuracy: false,
-                    timeout: 5000,
-                    maximumAge: 15 * 60 * 1000 // 15 minutes cache
-                }
+                error => reject(new Error('Could not get your location')),
+                { enableHighAccuracy: false, timeout: 5000 }
             );
         });
     }
 
-    // 3. Fetch functions with abort controller and timeout
-    async function fetchWeatherByCoords(lat, lon) {
-        if (currentController) {
-            currentController.abort();
-        }
+
+    // 7. Fetch weather data
+    async function fetchWeather(endpoint) {
+        if (currentController) currentController.abort();
 
         currentController = new AbortController();
         const timeoutId = setTimeout(() => currentController.abort(), 8000);
 
         try {
-            const response = await fetch(`/api/weather?lat=${lat}&lon=${lon}`, {
+            const response = await fetch(endpoint, {
                 signal: currentController.signal
             });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) throw new Error('Network error');
-            const data = await response.json();
-            return {...data, source: 'geo'};
-        } catch (error) {
-            clearTimeout(timeoutId);
-            console.error('Weather fetch error:', error);
-            return {error: error.name === 'AbortError' ? 'Request timed out' : 'Failed to get weather for your location'};
-        } finally {
-            currentController = null;
-        }
-    }
-
-    async function fetchWeatherByCity(city = null) {
-        if (currentController) {
-            currentController.abort();
-        }
-
-        currentController = new AbortController();
-        const timeoutId = setTimeout(() => currentController.abort(), 8000);
-
-        try {
-            const url = city ? `/api/weather?city=${encodeURIComponent(city)}` : '/api/weather';
-            const response = await fetch(url, {
-                signal: currentController.signal
-            });
-
             clearTimeout(timeoutId);
 
             if (!response.ok) throw new Error('Network error');
             return await response.json();
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('Weather fetch error:', error);
-            return {error: error.name === 'AbortError' ? 'Request timed out' : 'Failed to get weather data'};
+            console.error('Fetch error:', error);
+            return { error: error.name === 'AbortError' ? 'Request timed out' : 'Failed to get weather data' };
         } finally {
             currentController = null;
         }
     }
 
-    // 4. Main weather loading function with loading state
+
+    // 8. Main weather loading function
+    // Update your loadWeather function to handle reset cases
     async function loadWeather(preferredCity = null) {
         if (isLoading) return;
         isLoading = true;
 
+        // Clear any existing weather data while loading
         const sidebar = document.getElementById('sidebar-weather');
-        const globalDisplay = document.getElementById('global-weather-display');
-
-        // Show loading state
         if (sidebar) sidebar.innerHTML = '<div class="spinner-border text-primary" role="status"></div>';
-        if (globalDisplay && globalDisplay.style.display !== 'none') {
-            globalDisplay.innerHTML = '<div class="text-center py-3"><div class="spinner-border"></div></div>';
-        }
 
         try {
             let weather;
 
-            // Priority 1: Use preferred city if specified
-            if (preferredCity) {
-                weather = await fetchWeatherByCity(preferredCity);
-            }
-            // Priority 2: Try geolocation if no city specified
-            else if (navigator.geolocation) {
-                try {
-                    const position = await getCurrentPosition();
-                    weather = await fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
+            // Check URL for reset parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const shouldReset = urlParams.has('reset_weather');
 
-                    // Fallback to default if geolocation fails
-                    if (weather.error) {
-                        weather = await fetchWeatherByCity();
+            // If resetting or no city specified, load local weather
+            if (shouldReset || !preferredCity) {
+                if (navigator.geolocation) {
+                    try {
+                        const position = await getCurrentPosition();
+                        weather = await fetchWeather(`/api/weather?lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                    } catch (e) {
+                        weather = await fetchWeather('/api/weather');
                     }
-                } catch (geoError) {
-                    console.log('Geolocation failed, using default:', geoError);
-                    weather = await fetchWeatherByCity();
+                } else {
+                    weather = await fetchWeather('/api/weather');
                 }
-            }
-            // Priority 3: Fallback to default
-            else {
-                weather = await fetchWeatherByCity();
+            } else {
+                // Load preferred city weather
+                weather = await fetchWeather(`/api/weather?city=${encodeURIComponent(preferredCity)}`);
             }
 
-            // Update displays
-            if (sidebar) displayWeather(sidebar, weather, weather.source);
-            if (globalDisplay && globalDisplay.style.display !== 'none') {
-                displayWeather(globalDisplay, weather, weather.source);
+            // Update display
+            if (sidebar) displayWeather(sidebar, weather);
+
+            // Clear the reset parameter from URL without reloading
+            if (shouldReset) {
+                window.history.replaceState({}, '', window.location.pathname);
             }
 
             return weather;
-        } catch (error) {
-            console.error('Weather load error:', error);
-            return {error: 'Failed to load weather data'};
         } finally {
             isLoading = false;
         }
     }
 
-    // 5. Event listeners with proper cleanup
-    document.getElementById('use-current-location')?.addEventListener('click', async function(e) {
-        e.preventDefault();
-        await loadWeather();
-    });
 
-    document.getElementById('detect-location')?.addEventListener('click', async function() {
-        const button = this;
-        const originalText = button.innerHTML;
 
-        try {
-            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Detecting...';
-            button.disabled = true;
+    // 9. Initialize event listeners
+    function initEventListeners() {
+        // Weather form submission
+        document.getElementById('weatherForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (isLoading) return;
 
-            const position = await getCurrentPosition();
-            const weather = await fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
+            const cityInput = document.getElementById('weatherCity');
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (!cityInput || !submitBtn) return;
 
-            const sidebar = document.getElementById('sidebar-weather');
-            if (sidebar) displayWeather(sidebar, weather, 'geo');
+            const city = cityInput.value.trim();
+            if (!city) return;
 
-            const modal = bootstrap.Modal.getInstance(document.getElementById('weatherModal'));
-            if (modal) modal.hide();
-        } catch (error) {
-            alert(error.message || 'Could not detect your location');
-        } finally {
-            button.innerHTML = originalText;
-            button.disabled = false;
-        }
-    });
+            isLoading = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Loading...';
+            submitBtn.disabled = true;
 
-    document.getElementById('weatherForm')?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (isLoading) return;
+            try {
+                const weather = await fetchWeather(`/api/weather?city=${encodeURIComponent(city)}`);
+                if (document.getElementById('sidebar-weather')) {
+                    displayWeather(document.getElementById('sidebar-weather'), weather);
+                }
+                showWeatherFlash(weather);
 
-        const cityInput = document.getElementById('weatherCity');
-        const submitBtn = this.querySelector('button[type="submit"]');
-
-        if (!cityInput || !submitBtn) return;
-
-        const city = cityInput.value.trim();
-        if (!city) return;
-
-        isLoading = true;
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
-        submitBtn.disabled = true;
-
-        try {
-            const weather = await fetchWeatherByCity(city);
-
-            const sidebar = document.getElementById('sidebar-weather');
-            if (sidebar) displayWeather(sidebar, weather);
-
-            const modal = bootstrap.Modal.getInstance(document.getElementById('weatherModal'));
-            if (modal) modal.hide();
-
-            cityInput.value = '';
-        } catch (error) {
-            console.error('Update failed:', error);
-            alert('Failed to update weather location. Please try again.');
-        } finally {
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-            isLoading = false;
-        }
-    });
-
-    // 6. Modal cleanup handler
-    const weatherModal = document.getElementById('weatherModal');
-    if (weatherModal) {
-        weatherModal.addEventListener('hidden.bs.modal', function() {
-            if (currentController) {
-                currentController.abort();
-                currentController = null;
+                bootstrap.Modal.getInstance(document.getElementById('weatherModal'))?.hide();
+                cityInput.value = '';
+            } catch (error) {
+                console.error('Error:', error);
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                isLoading = false;
             }
-            document.getElementById('weatherCity').value = '';
+        });
+
+        // Close button
+        document.getElementById('closeWeatherFlash')?.addEventListener('click', hideWeatherFlash);
+
+        // Home link (using event delegation)
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.weather-flash-footer a')) {
+                handleHomeLinkClick(e);
+            }
+        });
+
+        // Current location
+        document.getElementById('use-current-location')?.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await loadWeather();
         });
     }
 
-    // 7. Initialize weather on page load
-    (async function init() {
-        await loadWeather();
-    })();
+    // 10. Initialize the application
+     (async function init() {
+        initEventListeners();
 
+        // Check if we're coming from a weather search
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromSearch = urlParams.has('from_search');
+
+        if (!fromSearch) {
+            // Load local weather by default
+            await loadWeather();
+        }
+     })();
 });
 </script>
 {% include "footer.html" %}

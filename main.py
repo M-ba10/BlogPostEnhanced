@@ -25,6 +25,8 @@ from email.mime.text import MIMEText
 import os
 from dotenv import load_dotenv
 import requests
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 
@@ -67,31 +69,40 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 
-
 def get_weather(location="London"):
     try:
+        api_key = os.getenv('OPENWEATHER_API_KEY')
+        if not api_key:
+            app.logger.error("OpenWeather API key missing!")
+            return {'error': 'Weather service unavailable'}
+
         response = requests.get(
             'https://api.openweathermap.org/data/2.5/weather',
             params={
                 'q': location,
-                'appid': os.getenv('OPENWEATHER_API_KEY'),
+                'appid': api_key,
                 'units': 'metric',
-                'lang': get_locale()  # Use current language from Babel
+                'lang': get_locale()
             },
-            timeout=5  # Add timeout to prevent hanging
+            timeout=5
         )
 
-        # Check for "city not found" type errors
-        if response.status_code == 404:
+        # More specific HTTP error handling
+        if response.status_code == 401:
+            app.logger.error("Invalid OpenWeather API Key")
+            return {'error': 'Weather service configuration error'}
+        elif response.status_code == 404:
             return {'error': _('City not found. Please try another location.')}
+        elif response.status_code == 429:
+            return {'error': _('Too many requests. Please try again later.')}
 
         response.raise_for_status()
-
         data = response.json()
 
-        # Handle case where city is not properly returned
-        if not data.get('name'):
-            return {'error': _('Invalid location data received')}
+        # Validate response structure
+        if not all(key in data for key in ['main', 'weather', 'sys']):
+            app.logger.error(f"Malformed API response: {data}")
+            return {'error': _('Invalid weather data received')}
 
         return {
             'temp': data['main']['temp'],
@@ -101,17 +112,15 @@ def get_weather(location="London"):
             'country': data['sys'].get('country', ''),
             'humidity': data['main']['humidity'],
             'wind_speed': data['wind']['speed'],
-            'feels_like': data['main']['feels_like']  # Added for better UX
+            'feels_like': data['main']['feels_like']
         }
 
     except requests.exceptions.Timeout:
+        app.logger.warning("Weather API timeout")
         return {'error': _('Weather service timeout. Please try again later.')}
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Weather API error: {str(e)}")
-        return {'error': _('Failed to fetch weather data. Please try again later.')}
-    except (KeyError, IndexError) as e:
-        app.logger.error(f"Weather data parsing error: {str(e)}")
-        return {'error': _('Invalid weather data received')}
+    except Exception as e:
+        app.logger.error(f"Weather API critical error: {str(e)}")
+        return {'error': _('Weather service unavailable')}
 
 
 ############################# WEATHER service ###############################
@@ -152,34 +161,52 @@ def get_weather_by_coords(lat, lon):
         return {'error': str(e)}
 
 
+
+
+
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 @app.route('/api/weather', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
 def weather_api():
-    if request.method == 'POST':
-        city = request.form.get('city')
-        if city:
-            session['weather_city'] = city
-        return jsonify({"success": True})
+    try:
+        app.logger.info(f'Weather API called with params: {request.args}')
 
-    # Check for coordinates first
-    lat = request.args.get('lat')
-    lon = request.args.get('lon')
-    if lat and lon:
-        try:
-            weather = get_weather_by_coords(lat, lon)
-            if 'error' not in weather:
-                return jsonify(weather)
-        except Exception as e:
-            app.logger.error(f"Coord weather error: {str(e)}")
+        if request.method == 'POST':
+            city = request.form.get('city')
+            if city:
+                session['weather_city'] = city
+                session.modified = True  # Ensure session is saved
+            return jsonify({"success": True})
 
-    # Fallback to session city or default
-    city = request.args.get('city') or session.get('weather_city') or 'London'
-    weather = get_weather(city)
+        # Try coordinates first
+        lat = request.args.get('lat')
+        lon = request.args.get('lon')
+        if lat and lon:
+            try:
+                weather = get_weather_by_coords(lat, lon)
+                if 'error' not in weather:
+                    return jsonify(weather)
+                app.logger.warning(f"Coordinate weather error: {weather['error']}")
+            except Exception as e:
+                app.logger.error(f"Coordinate lookup failed: {str(e)}")
 
-    if 'error' in weather:
-        return jsonify({'error': weather['error']}), 400
+        # Fallback to city
+        city = request.args.get('city') or session.get('weather_city') or 'London'
+        weather = get_weather(city)
 
-    return jsonify(weather)
+        if 'error' in weather:
+            app.logger.warning(f"Weather lookup failed for {city}: {weather['error']}")
+            return jsonify({'error': weather['error']}), 400
 
+        return jsonify(weather)
+
+    except Exception as e:
+        app.logger.critical(f"Weather API endpoint crashed: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 
 

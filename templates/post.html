@@ -448,32 +448,38 @@
 
         // Reply form submission
         if (e.target.closest('.reply-form-container form')) {
-            const form = e.target.closest('form');
-            if (e.target.type === 'submit') {
-                e.preventDefault();
-                const formData = new FormData(form);
+          const form = e.target.closest('form');
+          if (e.target.type === 'submit') {
+              e.preventDefault();
+              const formData = new FormData(form);
 
-                fetch(form.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token() }}'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert(data.message || 'Error posting reply');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Failed to post reply');
-                });
-            }
+              // Add any additional data needed
+              const parentCommentId = form.querySelector('[name="parent_comment_id"]').value;
+              formData.append('parent_comment_id', parentCommentId);
+
+              fetch(form.action, {
+                  method: 'POST',
+                  body: formData,
+                  headers: {
+                      'X-CSRFToken': '{{ csrf_token() }}'
+                  }
+              })
+              .then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      window.location.reload();
+                  } else {
+                      alert(data.message || 'Error posting reply');
+                  }
+              })
+              .catch(error => {
+                  console.error('Error:', error);
+                  alert('Failed to post reply');
+              });
+          }
         }
+
+
     });
 
     // 2. EDIT FUNCTIONALITY

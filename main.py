@@ -815,7 +815,7 @@ def add_new_post():
         Thread(target=send_new_post_notification, args=(new_post,)).start()
         print("📧 Notifications thread launch!")
 
-        flash(_("New post created successfully and notifications sent!"))
+        #flash(_("New post created successfully and notifications sent!"))
         # Redirect to the main page
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
@@ -1112,33 +1112,21 @@ def reply_comment(post_id):
 @app.route('/post/<int:post_id>/reply', methods=['POST'])
 @login_required
 def reply_comment(post_id):
-    # Get form data
     reply_text = request.form.get('reply_text', '').strip()
     parent_comment_id = request.form.get('parent_comment_id')
 
-    # Validate required fields
     if not reply_text:
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'success': False, 'message': 'Reply text cannot be empty'}), 400
-
         flash('Reply text cannot be empty', 'danger')
         return redirect(url_for('show_post', post_id=post_id))
 
-    '''if not parent_comment_id:
-        if request.accept_mimetypes.accept_json:
-            return jsonify({'success': False, 'message': 'Parent comment missing'}), 400
-        flash('Invalid reply target', 'danger')
-        return redirect(url_for('show_post', post_id=post_id)) '''
-
     try:
-        # Get parent comment
         parent_comment = db.get_or_404(Comment, parent_comment_id)
+        post = db.get_or_404(BlogPost, post_id)
 
-        # Create new reply
         new_reply = Comment(
             text=reply_text,
             comment_author=current_user,
-            parent_post_id=post_id,
+            parent_post=post,  # Changed from parent_post_id to parent_post
             parent_id=parent_comment_id,
             created_at=datetime.now(timezone.utc)
         )
@@ -1146,34 +1134,14 @@ def reply_comment(post_id):
         db.session.add(new_reply)
         db.session.commit()
 
-        # Send notification
         send_reply_notification(new_reply, parent_comment)
-
-        # Handle AJAX requests
-        if request.accept_mimetypes.accept_json:
-            return jsonify({
-                'success': True,
-                'message': 'Reply posted successfully',
-                'comment_id': new_reply.id,
-                'html': render_template('includes/reply.html', reply=new_reply)  # Optional
-            })
-
-        # Regular form submission
         flash('Your reply has been posted!', 'success')
         return redirect(url_for('show_post', post_id=post_id, _anchor=f'comment-{new_reply.id}'))
 
     except Exception as e:
         app.logger.error(f"Error posting reply: {str(e)}")
-
-        if request.accept_mimetypes.accept_json:
-            return jsonify({
-                'success': False,
-                'message': 'Error posting reply'
-            }), 500
-
         flash('Error posting reply', 'danger')
         return redirect(url_for('show_post', post_id=post_id))
-
 
 
 @app.route("/about")

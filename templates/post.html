@@ -421,17 +421,13 @@
 <script>
 
   document.addEventListener('DOMContentLoaded', function() {
-
-    ######################################################################################################
-       // 1. REPLY FUNCTIONALITY
-
       // 1. REPLY FUNCTIONALITY
     document.addEventListener('click', function(e) {
         // Reply button handling
         if (e.target.classList.contains('reply-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            const form = document.getElementById(`reply-form-${commentId}`);
+            const form = document.getElementById('reply-form-' + commentId);
             const isOpen = form.style.display === 'block';
 
             // Close all other forms
@@ -487,21 +483,21 @@
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
             const commentText = e.target.getAttribute('data-comment-text');
-            const contentDiv = document.getElementById(`comment-content-${commentId}`);
-            const editForm = document.getElementById(`edit-form-${commentId}`);
+            const contentDiv = document.getElementById('comment-content-' + commentId);
+            const editForm = document.getElementById('edit-form-' + commentId);
 
             contentDiv.style.display = 'none';
             editForm.style.display = 'block';
-            document.getElementById(`edit-textarea-${commentId}`).value = commentText;
+            document.getElementById('edit-textarea-' + commentId).value = commentText;
         }
 
         // Save edit
         if (e.target.classList.contains('save-edit-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            const newText = document.getElementById(`edit-textarea-${commentId}`).value.trim();
+            const newText = document.getElementById('edit-textarea-' + commentId).value.trim();
 
-            fetch(`/comment/${commentId}/edit`, {
+            fetch('/comment/' + commentId + '/edit', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -509,13 +505,28 @@
                 },
                 body: JSON.stringify({ text: newText })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
-                    window.location.reload();
+                    document.getElementById('comment-content-' + commentId).innerHTML = data.text;
+                    document.getElementById('comment-content-' + commentId).style.display = 'block';
+                    document.getElementById('edit-form-' + commentId).style.display = 'none';
+
+                    // Update the edit button with new text
+                    const editBtn = document.querySelector('.edit-comment-btn[data-comment-id="' + commentId + '"]');
+                    if (editBtn) {
+                        editBtn.setAttribute('data-comment-text', newText);
+                    }
                 } else {
-                    alert(data.message || 'Error updating comment');
+                    alert(data.error || 'Error updating comment');
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to update comment');
             });
         }
 
@@ -523,8 +534,8 @@
         if (e.target.classList.contains('cancel-edit-btn')) {
             e.preventDefault();
             const commentId = e.target.getAttribute('data-comment-id');
-            document.getElementById(`comment-content-${commentId}`).style.display = 'block';
-            document.getElementById(`edit-form-${commentId}`).style.display = 'none';
+            document.getElementById('comment-content-' + commentId).style.display = 'block';
+            document.getElementById('edit-form-' + commentId).style.display = 'none';
         }
     });
 
@@ -535,174 +546,184 @@
             const commentId = e.target.getAttribute('data-comment-id');
 
             if (confirm('Are you sure you want to delete this comment?')) {
-                fetch(`/comment/${commentId}/delete`, {
+                fetch('/comment/' + commentId + '/delete', {
                     method: 'POST',
                     headers: {
                         'X-CSRFToken': '{{ csrf_token() }}'
                     }
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
-                        document.getElementById(`comment-${commentId}`).remove();
+                        document.getElementById('comment-' + commentId).remove();
+                    } else {
+                        alert('Failed to delete comment');
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to delete comment');
                 });
             }
         }
     });
 
+    // Like functionality
+    const likeButton = document.getElementById('likeButton');
+    if (likeButton) {
+        likeButton.addEventListener('click', function() {
+            const postId = this.getAttribute('data-post-id');
 
+            fetch('/like/' + postId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                const likeCount = document.getElementById('likeCount');
+                const likeText = document.getElementById('likeText');
 
-      // Like functionality
-      const likeButton = document.getElementById('likeButton');
-      if (likeButton) {
-          likeButton.addEventListener('click', function() {
-              const postId = this.getAttribute('data-post-id');
+                if (likeCount) likeCount.textContent = data.likes;
 
-              fetch(`/like/${postId}`, {
-                  method: 'POST',
-                  headers: {
-                      'Content-Type': 'application/json',
-                      'X-CSRFToken': '{{ csrf_token() }}'
-                  },
-                  credentials: 'same-origin'
-              })
-              .then(response => {
-                  if (!response.ok) throw new Error('Network response was not ok');
-                  return response.json();
-              })
-              .then(data => {
-                  const likeCount = document.getElementById('likeCount');
-                  const likeText = document.getElementById('likeText');
+                if (data.status === 'liked') {
+                    likeButton.classList.remove('btn-outline-danger');
+                    likeButton.classList.add('btn-danger');
+                    if (likeText) likeText.textContent = '{{ _("Unlike") }}';
+                } else {
+                    likeButton.classList.remove('btn-danger');
+                    likeButton.classList.add('btn-outline-danger');
+                    if (likeText) likeText.textContent = '{{ _("Like") }}';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to process like action');
+            });
+        });
+    }
 
-                  if (likeCount) likeCount.textContent = data.likes;
+    // Reading progress bar
+    window.addEventListener('scroll', function() {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        document.getElementById('readingProgress').style.width = scrolled + '%';
+    });
 
-                  if (data.status === 'liked') {
-                      likeButton.classList.remove('btn-outline-danger');
-                      likeButton.classList.add('btn-danger');
-                      if (likeText) likeText.textContent = '{{ _("Unlike") }}';
-                  } else {
-                      likeButton.classList.remove('btn-danger');
-                      likeButton.classList.add('btn-outline-danger');
-                      if (likeText) likeText.textContent = '{{ _("Like") }}';
-                  }
-              })
-              .catch(error => console.error('Error:', error));
-          });
-      }
+    // Back to top button
+    const backToTopButton = document.getElementById('backToTop');
+    window.addEventListener('scroll', function() {
+        if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+            backToTopButton.style.display = 'block';
+        } else {
+            backToTopButton.style.display = 'none';
+        }
+    });
+    backToTopButton.addEventListener('click', function() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
 
-      // Reading progress bar
-      window.addEventListener('scroll', function() {
-          const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-          const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-          const scrolled = (winScroll / height) * 100;
-          document.getElementById('readingProgress').style.width = scrolled + '%';
-      });
+    // Generate table of contents
+    const article = document.querySelector('article');
+    const tocContent = document.getElementById('tocContent');
+    if (article && tocContent) {
+        const headings = article.querySelectorAll('h1, h2, h3, h4');
+        if (headings.length > 1) {
+            const toc = document.createElement('ul');
+            headings.forEach(function(heading, index) {
+                if (!heading.id) {
+                    heading.id = 'heading-' + index;
+                }
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.href = '#' + heading.id;
+                link.textContent = heading.textContent;
+                link.style.textDecoration = 'none';
 
-      // Back to top button
-      const backToTopButton = document.getElementById('backToTop');
-      window.addEventListener('scroll', function() {
-          if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
-              backToTopButton.style.display = 'block';
-          } else {
-              backToTopButton.style.display = 'none';
-          }
-      });
-      backToTopButton.addEventListener('click', function() {
-          window.scrollTo({
-              top: 0,
-              behavior: 'smooth'
-          });
-      });
+                if (heading.tagName === 'H3') {
+                    listItem.style.marginLeft = '1rem';
+                } else if (heading.tagName === 'H4') {
+                    listItem.style.marginLeft = '2rem';
+                }
 
-      // Generate table of contents
-      const article = document.querySelector('article');
-      const tocContent = document.getElementById('tocContent');
-      if (article && tocContent) {
-          const headings = article.querySelectorAll('h1, h2, h3, h4');
-          if (headings.length > 1) {
-              const toc = document.createElement('ul');
-              headings.forEach(function(heading, index) {
-                  if (!heading.id) {
-                      heading.id = 'heading-' + index;
-                  }
-                  const listItem = document.createElement('li');
-                  const link = document.createElement('a');
-                  link.href = '#' + heading.id;
-                  link.textContent = heading.textContent;
-                  link.style.textDecoration = 'none';
+                listItem.appendChild(link);
+                toc.appendChild(listItem);
+            });
+            tocContent.appendChild(toc);
+        } else {
+            document.querySelector('.toc').style.display = 'none';
+        }
+    }
 
-                  if (heading.tagName === 'H3') {
-                      listItem.style.marginLeft = '1rem';
-                  } else if (heading.tagName === 'H4') {
-                      listItem.style.marginLeft = '2rem';
-                  }
+    // Highlight comment if it's in URL hash
+    function highlightCommentFromHash() {
+        if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+            const commentId = window.location.hash.substring(1);
+            const commentElement = document.getElementById(commentId);
 
-                  listItem.appendChild(link);
-                  toc.appendChild(listItem);
-              });
-              tocContent.appendChild(toc);
-          } else {
-              document.querySelector('.toc').style.display = 'none';
-          }
-      }
+            if (commentElement) {
+                // Smooth scroll to comment
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-      // Highlight comment if it's in URL hash
-      function highlightCommentFromHash() {
-          if (window.location.hash && window.location.hash.startsWith('#comment-')) {
-              const commentId = window.location.hash.substring(1);
-              const commentElement = document.getElementById(commentId);
+                // Highlight animation
+                commentElement.classList.add('highlight');
 
-              if (commentElement) {
-                  // Smooth scroll to comment
-                  commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Remove highlight after animation
+                setTimeout(() => {
+                    commentElement.classList.remove('highlight');
+                }, 3000);
 
-                  // Highlight animation
-                  commentElement.classList.add('highlight');
+                // Auto-expand any parent replies
+                const replyForm = commentElement.closest('.reply')?.parentElement?.querySelector('.reply-form-container');
+                if (replyForm && replyForm.style.display === 'none') {
+                    const replyBtn = replyForm.closest('.comment-container').querySelector('.reply-btn');
+                    replyBtn.click();
+                }
+            }
+        }
+    }
 
-                  // Remove highlight after animation
-                  setTimeout(() => {
-                      commentElement.classList.remove('highlight');
-                  }, 3000);
+    highlightCommentFromHash();
 
-                  // Auto-expand any parent replies
-                  const replyForm = commentElement.closest('.reply')?.parentElement?.querySelector('.reply-form-container');
-                  if (replyForm && replyForm.style.display === 'none') {
-                      const replyBtn = replyForm.closest('.comment-container').querySelector('.reply-btn');
-                      replyBtn.click();
-                  }
-              }
-          }
-      }
+    // Copy link functionality
+    function copyPostLink(button) {
+        const url = button.getAttribute('data-url');
+        navigator.clipboard.writeText(url).then(() => {
+            const btnText = button.querySelector('.btn-text');
+            const originalText = btnText.textContent;
 
-      highlightCommentFromHash();
+            btnText.textContent = '{{ _("Copied!") }}';
+            button.classList.remove('btn-outline-secondary');
+            button.classList.add('btn-success');
 
-      // Copy link functionality
-      function copyPostLink(button) {
-          const url = button.getAttribute('data-url');
-          navigator.clipboard.writeText(url).then(() => {
-              const btnText = button.querySelector('.btn-text');
-              const originalText = btnText.textContent;
+            setTimeout(() => {
+                btnText.textContent = originalText;
+                button.classList.remove('btn-success');
+                button.classList.add('btn-outline-secondary');
+            }, 2000);
+        }).catch(err => {
+            console.error('Failed to copy: ', err);
+        });
+    }
 
-              btnText.textContent = '{{ _("Copied!") }}';
-              button.classList.remove('btn-outline-secondary');
-              button.classList.add('btn-success');
-
-              setTimeout(() => {
-                  btnText.textContent = originalText;
-                  button.classList.remove('btn-success');
-                  button.classList.add('btn-outline-secondary');
-              }, 2000);
-          }).catch(err => {
-              console.error('Failed to copy: ', err);
-          });
-      }
-
-      document.querySelectorAll('.copy-link-btn').forEach(btn => {
-          btn.addEventListener('click', function() {
-              copyPostLink(this);
-          });
-      });
+    document.querySelectorAll('.copy-link-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            copyPostLink(this);
+        });
+    });
   });
 </script>
 

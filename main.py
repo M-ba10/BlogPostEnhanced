@@ -821,44 +821,33 @@ def add_new_post():
     return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
-
-
 # rout for like notifications 7
 @app.route("/like/<int:post_id>", methods=["POST"])
 @login_required
 def like_post(post_id):
     post = db.get_or_404(BlogPost, post_id)
-    app.logger.info(f"Like route called for post {post_id} by user {current_user.id}")
 
-    message = "You can not like your own post"
     if current_user.id == post.author_id:
-        return {"status": "error", "message": message}
+        return jsonify({"status": "error", "message": "You cannot like your own post"}), 400
 
-    # Check if user already liked this post
     existing_like = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first()
 
     if existing_like:
-        # User already liked this post, so unlike it
-        app.logger.info(f"User {current_user.id} unliking post {post_id}")
         db.session.delete(existing_like)
         db.session.commit()
-        like_count = Like.query.filter_by(post_id=post_id).count()
-        app.logger.info(f"New like count for post {post_id}: {like_count}")
-        return {"status": "unliked", "likes": like_count}
+        like_count = post.like_count
+        return jsonify({"status": "unliked", "likes": like_count})
     else:
-        # User hasn't liked this post yet, so like it
-        app.logger.info(f"User {current_user.id} liking post {post_id}")
         new_like = Like(user_id=current_user.id, post_id=post_id)
         db.session.add(new_like)
         db.session.commit()
-        like_count = Like.query.filter_by(post_id=post_id).count()
-        app.logger.info(f"New like count for post {post_id}: {like_count}")
+        like_count = post.like_count
 
-        # Notify post author of the like using threading
-        from threading import Thread
-        Thread(target=send_like_notification, args=(post, current_user)).start()
+        # Send notification
+        send_like_notification(post, current_user)
 
-        return {"status": "liked", "likes": like_count}
+        return jsonify({"status": "liked", "likes": like_count})
+
 
  # Use a decorator so only an admin user can edit a post
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
@@ -886,6 +875,7 @@ def edit_post(post_id):
                            is_edit=True,
                            current_user=current_user,
                            get_gravatar_url=get_gravatar_url)
+
 
 
 # Use a decorator so only an admin user can delete a post
@@ -1044,19 +1034,20 @@ def notification_preferences():
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 @login_required
 def edit_comment(comment_id):
-    comment = Comment.query.get_or_404(Comment, comment_id)
+    comment = db.get_or_404(Comment, comment_id)
 
-    # Check if user is authorized to edit this comment
-    if comment.comment_author.id != current_user.id and current_user.id != 1:  # User is not author or admin
-        return jsonify({'error': 'Unauthorized'}), 403
+    # Authorization check
+    if comment.comment_author.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-    # Get data from request
-    new_text = request.json.get('text').strip()
-   # text = data.get('text', '').strip()
+    data = request.get_json()
+    if not data or 'text' not in data:
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+    new_text = data['text'].strip()
     if not new_text:
-        return jsonify({'success': False,  'message': 'Comment cannot be empty'}), 400
+        return jsonify({'success': False, 'error': 'Comment cannot be empty'}), 400
 
-    # Update comment
     comment.text = new_text
     comment.edited = True
     comment.edited_at = datetime.now(timezone.utc)
@@ -1069,17 +1060,15 @@ def edit_comment(comment_id):
     })
 
 
-  # delete comment
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required
 def delete_comment(comment_id):
-    comment = Comment.query.get_or_404(Comment, comment_id)
+    comment = db.get_or_404(Comment, comment_id)
 
-    # Check if user is authorized to delete this comment
-    if comment.comment_author.id != current_user.id and current_user.id != 1:  # User is not author or admin
-        return jsonify({'error': 'Unauthorized'}), 403
+    # Authorization check
+    if comment.comment_author.id != current_user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
-    # Delete comment
     db.session.delete(comment)
     db.session.commit()
 

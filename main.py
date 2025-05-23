@@ -706,33 +706,32 @@ def logout():
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
-
-    # Add the CommentForm to the route
     comment_form = CommentForm()
     reply_form = ReplyForm()
 
-    # User cannot comment on their own post on ly they can reply
-    is_author = current_user.is_authenticated and current_user.id == requested_post.author_id
-    if comment_form.validate_on_submit():
-        if is_author:
-            flash(_("As the post author,  you can only reply to existing comment", "warning"))
-            return redirect(url_for('show_post', post_id=post_id))
-
-
-   #Calculate reading time
+    # Calculate reading time
     reading_time = calculate_reading_time(requested_post.body)
 
+    # Check if user has liked the post
     has_liked = False
     if current_user.is_authenticated:
-        # check if user has liked the post and it is not their own post
-        #has_liked = current_user.has_liked_post(post_id)
-        has_liked = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
+        has_liked = Like.query.filter_by(
+            user_id=current_user.id,
+            post_id=post_id
+        ).first() is not None
 
-    ############################# Only allow logged-in users to comment on posts ##############
+    # Check if current user is the author
+    is_author = current_user.is_authenticated and current_user.id == requested_post.author_id
+
+    # Handle comment submission
     if comment_form.validate_on_submit():
         if not current_user.is_authenticated:
             flash(_("You need to login or register to comment."))
             return redirect(url_for("login"))
+
+        if is_author:
+            flash(_("As the post author, you can only reply to existing comments"), "warning")
+            return redirect(url_for('show_post', post_id=post_id))
 
         new_comment = Comment(
             text=comment_form.comment_text.data,
@@ -743,49 +742,42 @@ def show_post(post_id):
         db.session.commit()
         return redirect(url_for('show_post', post_id=post_id))
 
-
-    ################## Handle replies ############################
+    # Handle reply submission
     if reply_form.validate_on_submit():
         if not current_user.is_authenticated:
             flash(_("You need to login to reply."))
             return redirect(url_for("login"))
 
-        # To  allow reply regardless to ownership
         parent_comment_id = request.form.get('parent_comment_id')
-        parent_comment = Comment.query.get_or_404(parent_comment_id)
+        parent_comment = db.get_or_404(Comment, parent_comment_id)
 
         new_reply = Comment(
             text=reply_form.reply_text.data,
             comment_author=current_user,
-            parent_post=requested_post,
+            parent_post=requested_post,  # Use the relationship
             parent_id=parent_comment_id
         )
         db.session.add(new_reply)
         db.session.commit()
 
-
-
         send_reply_notification(new_reply, parent_comment)
-
         flash(_("Your reply has been posted!"))
-        return redirect(url_for('show_post',
-                                post_id=post_id) + f'#comment-{parent_comment_id}'
-                        )
+        return redirect(url_for('show_post', post_id=post_id, _anchor=f'comment-{new_reply.id}'))
 
     return render_template("post.html",
                            post=requested_post,
                            current_user=current_user,
                            form=comment_form,
                            reply_form=reply_form,
-                           has_liked = has_liked,
+                           has_liked=has_liked,
                            reading_time=reading_time,
                            is_author=is_author,
                            get_gravatar_url=get_gravatar_url
                            )
 
-# Use a decorator so only an admin user can create new posts
+
+# Create new posts
 @app.route("/new-post", methods=["GET", "POST"])
-#@admin_only
 @login_required
 def add_new_post():
     form = CreatePostForm()
@@ -795,27 +787,69 @@ def add_new_post():
             subtitle=form.subtitle.data,
             body=form.body.data,
             img_url=form.img_url.data,
-            author=current_user,
+            author=current_user,  # This ensures proper ownership
             date=date.today().strftime("%B %d, %Y")
         )
         db.session.add(new_post)
         db.session.commit()
 
-        print(f"✅ New post created by {current_user.name}")  # Debug 1
-
-         # Get users who want notifications
-        subscribers = User.query.filter_by(receive_notifications=True).all()
-        print(f"📢 Found {len(subscribers)} subscribers to notify")  # Debug 2
-
-        # Send notification to all users
+        # Send notifications
         from threading import Thread
+        subscribers = User.query.filter_by(receive_notifications=True).all()
         Thread(target=send_new_post_notification, args=(new_post,)).start()
-        print("📧 Notifications thread launch!")
 
-        #flash(_("New post created successfully and notifications sent!"))
-        # Redirect to the main page
+        flash(_("New post created successfully!"))
         return redirect(url_for("get_all_posts"))
-    return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
+    return render_template("make-post.html", form=form)
+
+
+# Edit posts
+@app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
+@login_required
+def edit_post(post_id):
+    post = db.get_or_404(BlogPost, post_id)
+
+    # Only allow author or admin (id=1) to edit
+    if current_user.id != post.author_id and current_user.id != 1:
+        abort(403)
+
+    edit_form = CreatePostForm(
+        title=post.title,
+        subtitle=post.subtitle,
+        img_url=post.img_url,
+        author=post.author,
+        body=post.body
+    )
+
+    if edit_form.validate_on_submit():
+        post.title = edit_form.title.data
+        post.subtitle = edit_form.subtitle.data
+        post.img_url = edit_form.img_url.data
+        post.body = edit_form.body.data
+        db.session.commit()
+        return redirect(url_for("show_post", post_id=post.id))
+
+    return render_template("make-post.html",
+                           form=edit_form,
+                           is_edit=True,
+                           current_user=current_user
+                           )
+
+
+# Delete posts
+@app.route("/delete/<int:post_id>")
+@login_required
+def delete_post(post_id):
+    post_to_delete = db.get_or_404(BlogPost, post_id)
+
+    # Only allow author or admin (id=1) to delete
+    if current_user.id != post_to_delete.author_id and current_user.id != 1:
+        abort(403)
+
+    db.session.delete(post_to_delete)
+    db.session.commit()
+    return redirect(url_for('get_all_posts'))
+
 
 
 # rout for like notifications 7
@@ -844,46 +878,6 @@ def like_post(post_id):
         send_like_notification(post, current_user)
 
         return jsonify({"status": "liked", "likes": like_count})
-
-
- # Use a decorator so only an admin user can edit a post
-@app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
-#@admin_only
-@login_required
-def edit_post(post_id):
-    post = db.get_or_404(BlogPost, post_id)
-    edit_form = CreatePostForm(
-        title=post.title,
-        subtitle=post.subtitle,
-        img_url=post.img_url,
-        author=post.author,
-        body=post.body
-    )
-    if edit_form.validate_on_submit():
-        post.title = edit_form.title.data
-        post.subtitle = edit_form.subtitle.data
-        post.img_url = edit_form.img_url.data
-        post.author = current_user
-        post.body = edit_form.body.data
-        db.session.commit()
-        return redirect(url_for("show_post", post_id=post.id))
-    return render_template("make-post.html",
-                           form=edit_form,
-                           is_edit=True,
-                           current_user=current_user,
-                           get_gravatar_url=get_gravatar_url)
-
-
-
-# Use a decorator so only an admin user can delete a post
-@app.route("/delete/<int:post_id>")
-#@admin_only
-@login_required
-def delete_post(post_id):
-    post_to_delete = db.get_or_404(BlogPost, post_id)
-    db.session.delete(post_to_delete)
-    db.session.commit()
-    return redirect(url_for('get_all_posts'))
 
 
 #🧾 Add a Search Route in Flask

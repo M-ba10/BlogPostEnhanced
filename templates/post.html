@@ -216,6 +216,9 @@
           <a class="btn btn-primary float-right" href="{{url_for('edit_post', post_id=post.id)}}">
             {{ _("Edit Post") }}
           </a>
+          <a class="btn btn-danger float-right ms-2" href="{{url_for('delete_post', post_id=post.id)}}">
+            {{ _("Delete Post") }}
+          </a>
         </div>
         {% endif %}
 
@@ -269,6 +272,7 @@
         {% endif %}
 
         {% if not is_author %}
+            <p class="text-muted">{{ _("No comments yet. Be the first to comment!") }}</p>
             {{ render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
         {% endif %}
 
@@ -386,8 +390,8 @@
                 </div>
 
               {% endfor %}
-            {% else %}
-              <p class="text-muted">{{ _("No comments yet. Be the first to comment!") }}</p>
+
+
             {% endif %}
         </div>
       </div>

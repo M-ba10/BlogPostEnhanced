@@ -725,8 +725,8 @@ def show_post(post_id):
     has_liked = False
     if current_user.is_authenticated:
         # check if user has liked the post and it is not their own post
-        has_liked = current_user.has_liked_post(post_id)
-       # has_liked = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
+        #has_liked = current_user.has_liked_post(post_id)
+        has_liked = Like.query.filter_by(user_id=current_user.id, post_id=post_id).first() is not None
 
     ############################# Only allow logged-in users to comment on posts ##############
     if comment_form.validate_on_submit():
@@ -764,9 +764,6 @@ def show_post(post_id):
         db.session.commit()
 
 
-        # Send notification in background
-        #from threading import Thread
-        #Thread(target=send_reply_notification, args=(new_reply, parent_comment)).start()
 
         send_reply_notification(new_reply, parent_comment)
 

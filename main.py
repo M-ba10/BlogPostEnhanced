@@ -800,7 +800,7 @@ def add_new_post():
 
         flash(_("New post created successfully!"))
         return redirect(url_for("get_all_posts"))
-    return render_template("make-post.html", form=form)
+    return render_template("make-post.html", form=form, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 
 # Edit posts
@@ -832,7 +832,8 @@ def edit_post(post_id):
     return render_template("make-post.html",
                            form=edit_form,
                            is_edit=True,
-                           current_user=current_user
+                           current_user=current_user,
+                           get_gravatar_url=get_gravatar_url
                            )
 
 

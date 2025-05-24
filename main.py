@@ -443,39 +443,40 @@ def send_email(name, email, phone, message):
 
 def send_reply_notification(reply, parent_comment):
     """Send email notification when someone replies to a comment"""
-    try:
-        if (parent_comment.comment_author.receive_reply_notifications and
-                parent_comment.comment_author.id != reply.comment_author.id):
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                server.starttls()
-                server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+    with app.app_context():
+        try:
+            if (parent_comment.comment_author.receive_reply_notifications and
+                    parent_comment.comment_author.id != reply.comment_author.id):
+                with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                    server.starttls()
+                    server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
 
-                msg = MIMEText(
-                    _("Hello %(name)s,\n\n"
-                      "%(reply_author)s replied to your comment on the post: %(post_title)s\n\n"
-                      "Your comment: %(comment_text)s\n"
-                      "Reply: %(reply_text)s\n\n"
-                      "View the conversation: %(post_url)s\n\n"
-                      "To manage notifications: %(prefs_url)s") % {
-                        'name': parent_comment.comment_author.name,
-                        'reply_author': reply.comment_author.name,
-                        'post_title': reply.parent_post.title,
-                        'comment_text': parent_comment.text[:100] + ('...' if len(parent_comment.text) > 100 else ''),
-                        'reply_text': reply.text[:100] + ('...' if len(reply.text) > 100 else ''),
-                        'post_url': url_for('show_post', post_id=reply.parent_post.id, _external=True),
-                        'prefs_url': url_for('notification_preferences', _external=True)
-                    },
-                    'plain'
-                )
-                msg['Subject'] = _("New reply to your comment on %(title)s") % {'title': reply.parent_post.title}
-                msg['From'] = app.config['EMAIL_USER']
-                msg['To'] = parent_comment.comment_author.email
+                    msg = MIMEText(
+                        _("Hello %(name)s,\n\n"
+                          "%(reply_author)s replied to your comment on the post: %(post_title)s\n\n"
+                          "Your comment: %(comment_text)s\n"
+                          "Reply: %(reply_text)s\n\n"
+                          "View the conversation: %(post_url)s\n\n"
+                          "To manage notifications: %(prefs_url)s") % {
+                            'name': parent_comment.comment_author.name,
+                            'reply_author': reply.comment_author.name,
+                            'post_title': reply.parent_post.title,
+                            'comment_text': parent_comment.text[:100] + ('...' if len(parent_comment.text) > 100 else ''),
+                            'reply_text': reply.text[:100] + ('...' if len(reply.text) > 100 else ''),
+                            'post_url': url_for('show_post', post_id=reply.parent_post.id, _external=True),
+                            'prefs_url': url_for('notification_preferences', _external=True)
+                        },
+                        'plain'
+                    )
+                    msg['Subject'] = _("New reply to your comment on %(title)s") % {'title': reply.parent_post.title}
+                    msg['From'] = app.config['EMAIL_USER']
+                    msg['To'] = parent_comment.comment_author.email
 
-                server.send_message(msg)
-                app.logger.info(f"Reply notification sent to {parent_comment.comment_author.email}")
+                    server.send_message(msg)
+                    app.logger.info(f"Reply notification sent to {parent_comment.comment_author.email}")
 
-    except Exception as e:
-        app.logger.error(f"Failed to send reply notification: {str(e)}")
+        except Exception as e:
+            app.logger.error(f"Failed to send reply notification: {str(e)}")
 
 
 # 5. Add a notification service
@@ -523,36 +524,37 @@ def send_new_post_notification(post):
     # Add this function to handle like notifications
 def send_like_notification(post, liker):
     """Send email notification to post author when someone likes their post"""
-    try:
-        app.logger.info(f"Sending like notification for post: {post.title}")
+    with app.app_context():
+        try:
+            app.logger.info(f"Sending like notification for post: {post.title}")
 
-        # Only notify the author if they want notifications and aren't the one liking
-        if post.author.id != liker.id and post.author.receive_notifications:
-            try:
-                with smtplib.SMTP("smtp.gmail.com", 587) as server:
-                    server.starttls()
-                    server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+            # Only notify the author if they want notifications and aren't the one liking
+            if post.author.id != liker.id and post.author.receive_notifications:
+                try:
+                    with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                        server.starttls()
+                        server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
 
-                    # Create the notification message
-                    msg = MIMEText(
-                        f"Hello {post.author.name},\n\n"
-                        f"{liker.name} liked your post: {post.title}\n"
-                        f"View it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
-                        f"To manage notifications: {url_for('notification_preferences', _external=True)}",
-                        'plain'
-                    )
-                    msg['Subject'] = f"{liker.name} liked your post: {post.title}"
-                    msg['From'] = app.config['EMAIL_USER']
-                    msg['To'] = post.author.email
+                        # Create the notification message
+                        msg = MIMEText(
+                            f"Hello {post.author.name},\n\n"
+                            f"{liker.name} liked your post: {post.title}\n"
+                            f"View it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                            f"To manage notifications: {url_for('notification_preferences', _external=True)}",
+                            'plain'
+                        )
+                        msg['Subject'] = f"{liker.name} liked your post: {post.title}"
+                        msg['From'] = app.config['EMAIL_USER']
+                        msg['To'] = post.author.email
 
-                    server.send_message(msg)
-                    app.logger.info(f"Like notification sent to {post.author.email}")
+                        server.send_message(msg)
+                        app.logger.info(f"Like notification sent to {post.author.email}")
 
-            except Exception as e:
-                app.logger.error(f"Failed to send like notification to {post.author.email}: {str(e)}")
+                except Exception as e:
+                    app.logger.error(f"Failed to send like notification to {post.author.email}: {str(e)}")
 
-    except Exception as e:
-        app.logger.error(f"Like notification system error: {str(e)}")
+        except Exception as e:
+            app.logger.error(f"Like notification system error: {str(e)}")
 
 
 
@@ -783,10 +785,14 @@ def add_new_post():
         db.session.add(new_post)
         db.session.commit()
 
+        ctx = app.app_context()
+        ctx.push()
         # Send notifications
         from threading import Thread
-        subscribers = User.query.filter_by(receive_notifications=True).all()
+        #subscribers = User.query.filter_by(receive_notifications=True).all()
         Thread(target=send_new_post_notification, args=(new_post,)).start()
+
+        ctx.pop()
 
         flash(_("New post created successfully!"))
         return redirect(url_for("get_all_posts"))

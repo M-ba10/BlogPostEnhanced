@@ -1043,6 +1043,30 @@ def edit_comment(comment_id):
         'edited_at': comment.edited_at.strftime('%B %d, %Y at %H:%M')
     })
 
+@app.route('/post/<int:post_id>/reply', methods=['POST'])
+@login_required
+def reply_comment(post_id):
+    if not current_user.is_authenticated:
+        flash(_("You need to login to reply."))
+        return redirect(url_for("login"))
+
+    parent_comment_id = request.form.get('parent_comment_id')
+    parent_comment = db.get_or_404(Comment, parent_comment_id)
+    post = db.get_or_404(BlogPost, post_id)
+
+    new_reply = Comment(
+        text=request.form.get('reply_text'),
+        comment_author=current_user,
+        parent_post=post,
+        parent_id=parent_comment_id
+    )
+    db.session.add(new_reply)
+    db.session.commit()
+
+    send_reply_notification(new_reply, parent_comment)
+    flash(_("Your reply has been posted!"))
+    return redirect(url_for('show_post', post_id=post_id, _anchor=f'comment-{new_reply.id}'))
+
 
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required

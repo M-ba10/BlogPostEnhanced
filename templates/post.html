@@ -210,8 +210,8 @@
           <hr>
         </div>
         <!--############################################# for edit post############################################ -->
-        <!-- Edit Post button (admin only) -->
-        {% if current_user.is_authenticated and current_user.id == post.author_id %}
+        <!-- Edit/Delete Post buttons - only show for author or admin -->
+        {% if current_user.is_authenticated and (current_user.id == post.author_id or current_user.id == 1) %}
         <div class="d-flex justify-content-end mb-4">
           <a class="btn btn-primary float-right" href="{{url_for('edit_post', post_id=post.id)}}">
             {{ _("Edit Post") }}
@@ -303,15 +303,16 @@
                   </div>
 
                   <!--##################################### Comment Actions################################################## -->
+                  <!-- Comment Actions -->
                   <div class="comment-actions mb-3">
-                    {% if current_user.is_authenticated  and  current_user.id != comment.comment_author.id%}
+                    {% if current_user.is_authenticated and current_user.id != comment.comment_author.id %}
                       <button class="btn btn-sm btn-outline-secondary reply-btn"
                               data-comment-id="{{ comment.id }}">
                         {{ _("Reply") }}
                       </button>
                     {% endif %}
-                        <!-- (current_user.id == comment.comment_author.id or current_user.id == 1)-->
-                    {% if current_user.is_authenticated and current_user.id == comment.comment_author.id  %}
+
+                    {% if current_user.is_authenticated and (current_user.id == comment.comment_author.id or current_user.id == 1) %}
                       <button class="btn btn-sm btn-outline-primary edit-comment-btn ms-1"
                               data-comment-id="{{ comment.id }}"
                               data-comment-text="{{ comment.text|escape }}">

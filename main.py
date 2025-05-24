@@ -1019,17 +1019,13 @@ def notification_preferences():
                            get_gravatar_url=get_gravatar_url)
 
 
-
-
-
-# edit comment
 @app.route('/comment/<int:comment_id>/edit', methods=['POST'])
 @login_required
 def edit_comment(comment_id):
     comment = db.get_or_404(Comment, comment_id)
 
-    # Authorization check
-    if comment.comment_author.id != current_user.id:
+    # Only allow comment author or admin to edit
+    if comment.comment_author.id != current_user.id and current_user.id != 1:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
     data = request.get_json()
@@ -1057,83 +1053,14 @@ def edit_comment(comment_id):
 def delete_comment(comment_id):
     comment = db.get_or_404(Comment, comment_id)
 
-    # Authorization check
-    if comment.comment_author.id != current_user.id:
+    # Only allow comment author or admin to delete
+    if comment.comment_author.id != current_user.id and current_user.id != 1:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
 
     db.session.delete(comment)
     db.session.commit()
 
     return jsonify({'success': True})
-
-# reply comment
-'''@app.route('/post/<int:post_id>/reply', methods=['POST'])
-@login_required
-def reply_comment(post_id):
-    if request.method == 'POST':
-        # Get form data
-        comment_text = request.form.get('reply_text')
-        parent_comment_id = request.form.get('parent_comment_id')
-
-        # Validate required fields
-        if not comment_text:
-            flash('Reply text cannot be empty', 'danger')
-            return redirect(url_for('show_post', post_id=post_id))
-
-        # Create new comment
-        new_comment = Comment(
-            text=comment_text,
-            post_id=post_id,
-            author_id=current_user.id,
-            parent_id=parent_comment_id
-        )
-
-        db.session.add(new_comment)
-        db.session.commit()
-
-        # Get parent comment for notification
-        parent_comment = Comment.query.get(parent_comment_id)
-        if parent_comment:
-            send_reply_notification(new_comment, parent_comment)
-
-        flash('Your reply has been posted!', 'success')
-        return redirect(url_for('show_post', post_id=post_id))
-'''
-
-
-@app.route('/post/<int:post_id>/reply', methods=['POST'])
-@login_required
-def reply_comment(post_id):
-    reply_text = request.form.get('reply_text', '').strip()
-    parent_comment_id = request.form.get('parent_comment_id')
-
-    if not reply_text:
-        flash('Reply text cannot be empty', 'danger')
-        return redirect(url_for('show_post', post_id=post_id))
-
-    try:
-        parent_comment = db.get_or_404(Comment, parent_comment_id)
-        post = db.get_or_404(BlogPost, post_id)
-
-        new_reply = Comment(
-            text=reply_text,
-            comment_author=current_user,
-            parent_post=post,  # Changed from parent_post_id to parent_post
-            parent_id=parent_comment_id,
-            created_at=datetime.now(timezone.utc)
-        )
-
-        db.session.add(new_reply)
-        db.session.commit()
-
-        send_reply_notification(new_reply, parent_comment)
-        flash('Your reply has been posted!', 'success')
-        return redirect(url_for('show_post', post_id=post_id, _anchor=f'comment-{new_reply.id}'))
-
-    except Exception as e:
-        app.logger.error(f"Error posting reply: {str(e)}")
-        flash('Error posting reply', 'danger')
-        return redirect(url_for('show_post', post_id=post_id))
 
 
 @app.route("/about")

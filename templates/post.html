@@ -303,9 +303,9 @@
                   </div>
 
                   <!--##################################### Comment Actions################################################## -->
-                  <!-- Comment Actions -->
+                  <!-- Comment Actions  and current_user.id != comment.comment_author.id -->
                   <div class="comment-actions mb-3">
-                    {% if current_user.is_authenticated and current_user.id != comment.comment_author.id %}
+                    {% if current_user.is_authenticated  %}
                       <button class="btn btn-sm btn-outline-secondary reply-btn"
                               data-comment-id="{{ comment.id }}">
                         {{ _("Reply") }}
@@ -455,6 +455,17 @@
         // Reply form submission
         if (e.target.closest('.reply-form-container form')) {
           const form = e.target.closest('form');
+
+          // added
+          const commentId = form.querySelector('[name="parent_comment_id"]').value;
+
+          // Check if user is authenticated
+          {% if not current_user.is_authenticated %}
+              window.location.href = "{{ url_for('login') }}";
+              return;
+          {% endif %}
+          // end added
+
           if (e.target.type === 'submit') {
               e.preventDefault();
               const formData = new FormData(form);

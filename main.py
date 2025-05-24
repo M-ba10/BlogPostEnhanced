@@ -300,21 +300,6 @@ class BlogPost(db.Model):
     def like_count(self):
         return db.session.query(Like).filter_by(post_id=self.id).count()
 
-###############################################
-
-'''def init_db():
-    with app.app_context():
-        if not os.path.exists(db_path):
-            try:
-                db.create_all()
-                print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
-            except Exception as e:
-                print(f"❌ Database operation failed: {str(e)}")
-
-# Call this directly so it runs during both local and Render deploys '''
-
-
-##############################################
 
 
 
@@ -328,7 +313,7 @@ class User(UserMixin, db.Model):
     receive_notifications = db.Column(db.Boolean, default=True)
     profile_image = db.Column(db.String(250), nullable=True)
     receive_reply_notifications = db.Column(db.Boolean, default=True)
-    posts = relationship("BlogPost", back_populates="author")
+    posts = relationship("BlogPost", back_populates="author", lazy='dynamic')
     comments = relationship("Comment", back_populates="comment_author")
     likes = relationship("Like", back_populates="user", cascade="all, delete-orphan")
     subscribed_tags = db.relationship('Tag', secondary='user_tag_subscriptions', backref='subscribers')
@@ -496,41 +481,42 @@ def send_reply_notification(reply, parent_comment):
 # 5. Add a notification service
 def send_new_post_notification(post):
     """Send email notification to all users about new post"""
-    try:
-        app.logger.info(f"Starting notification for post: {post.title}")
+    with app.app_context():
+        try:
+            app.logger.info(f"Starting notification for post: {post.title}")
 
-        # Get all users who want notifications
-        subscribers = User.query.filter_by(receive_notifications=True).all()
-        if not subscribers:
-            app.logger.info("No subscribers found")
-            return
+            # Get all users who want notifications
+            subscribers = User.query.filter_by(receive_notifications=True).all()
+            if not subscribers:
+                app.logger.info("No subscribers found")
+                return
 
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(app.config['EMAIL_USER'], app.config['EMAIL_PASS'])
 
-            for user in subscribers:
-                try:
-                    msg = MIMEText(
-                        f"Hello {user.name},\n\n"
-                        f"New post by {post.author.name}: {post.title}\n"
-                        f"Read it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
-                        "To unsubscribe: {url_for('notification_preferences', _external=True)}",
-                        'plain'
-                    )
-                    msg['Subject'] = f"New Post: {post.title}"
-                    msg['From'] = app.config['EMAIL_USER']
-                    msg['To'] = user.email
+                for user in subscribers:
+                    try:
+                        msg = MIMEText(
+                            f"Hello {user.name},\n\n"
+                            f"New post by {post.author.name}: {post.title}\n"
+                            f"Read it here: {url_for('show_post', post_id=post.id, _external=True)}\n\n"
+                            "To unsubscribe: {url_for('notification_preferences', _external=True)}",
+                            'plain'
+                        )
+                        msg['Subject'] = f"New Post: {post.title}"
+                        msg['From'] = app.config['EMAIL_USER']
+                        msg['To'] = user.email
 
-                    server.send_message(msg)
-                    app.logger.info(f"Notification sent to {user.email}")
+                        server.send_message(msg)
+                        app.logger.info(f"Notification sent to {user.email}")
 
-                except Exception as e:
-                    app.logger.error(f"Failed to send to {user.email}: {str(e)}")
+                    except Exception as e:
+                        app.logger.error(f"Failed to send to {user.email}: {str(e)}")
 
-    except Exception as e:
-        app.logger.error(f"Notification system error: {str(e)}")
-        raise  # Re-raise if you want to see it in console
+        except Exception as e:
+            app.logger.error(f"Notification system error: {str(e)}")
+            raise  # Re-raise if you want to see it in console
 
 
  # send like notification 6
@@ -633,11 +619,7 @@ def inject_template_methods():
         'current_language': session.get('lang', 'en')
     }
 
-@app.route('/')
-def get_all_posts():
-    result = db.session.execute(db.select(BlogPost))
-    posts = result.scalars().all()
-    return render_template("index.html", all_posts=posts, current_user=current_user, get_gravatar_url=get_gravatar_url)
+
 
 
 @app.route('/register', methods=["GET", "POST"])
@@ -701,6 +683,14 @@ def logout():
     logout_user()
     return redirect(url_for('get_all_posts'))
 
+
+@app.route('/')
+def get_all_posts():
+    #result = db.session.execute(db.select(BlogPost))
+   # posts = result.scalars().all()
+    # Eager load the author information with joinedload
+    posts = BlogPost.query.options(joinedload(BlogPost.author)).order_by(BlogPost.date.desc()).all()
+    return render_template("index.html", all_posts=posts, current_user=current_user, get_gravatar_url=get_gravatar_url)
 
 # Add a POST method to be able to post comments
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])

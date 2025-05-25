@@ -483,7 +483,7 @@
             const replyBtn = e.target.classList.contains('reply-btn') ?
                 e.target : e.target.closest('.reply-btn');
             const commentId = replyBtn.getAttribute('data-comment-id');
-            const form = document.getElementById(reply-form-${commentId});
+            const form = document.getElementById(`reply-form-${commentId}`);
             const isOpen = form.style.display === 'block';
 
             // Toggle form visibility
@@ -508,7 +508,7 @@
             const cancelBtn = e.target.classList.contains('cancel-reply-btn') ?
                 e.target : e.target.closest('.cancel-reply-btn');
             const commentId = cancelBtn.getAttribute('data-comment-id');
-            const form = document.getElementById(reply-form-${commentId});
+            const form = document.getElementById(`reply-form-${commentId}`);
             const replyBtn = form.closest('.comment-container').querySelector('.reply-btn');
 
             form.style.display = 'none';
@@ -592,7 +592,7 @@
                     }
 
                     // Scroll to highlight new reply
-                    const newReply = document.getElementById(comment-${data.reply.id});
+                    const newReply = document.getElementById(`comment-${data.reply.id}`);
                     newReply.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     setTimeout(() => {
                         newReply.classList.remove('highlight');

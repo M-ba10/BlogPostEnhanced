@@ -172,6 +172,27 @@
     .highlight {
       animation: highlight 2s ease;
     }
+
+    /* Style the reply button and cancel button */
+    .reply-btn, .cancel-reply-btn {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.5rem;
+        transition: all 0.2s;
+    }
+
+    .reply-btn:hover, .cancel-reply-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Form styling */
+    .reply-form-container form {
+        margin-top: 10px;
+    }
+
+    .reply-form-container textarea {
+        min-height: 100px;
+        margin-bottom: 10px;
+    }
   </style>
 </header>
 
@@ -287,7 +308,8 @@
                   <!-- Comment Header -->
                   <div class="comment-header d-flex align-items-center mb-2">
                     <img src="{{ comment.comment_author.profile_image or get_gravatar_url(comment.comment_author.email, 40) }}"
-                         class="rounded-circle me-2" width="40" height="40">
+                         class="rounded-circle me-2" width="40" height="40"
+                    >
                     <div>
                       <strong>{{ comment.comment_author.name }}</strong>
                       <small class="text-muted ms-2">{{ comment.created_at.strftime('%B %d, %Y at %H:%M') }}</small>
@@ -331,6 +353,8 @@
                   <div class="reply-form-container ms-4 ps-3 border-start" id="reply-form-{{ comment.id }}" style="display: none;">
                     <form method="POST" action="{{ url_for('reply_comment', post_id=post.id) }}">
                       <input type="hidden" name="parent_comment_id" value="{{ comment.id }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
                       <div class="mb-2">
                         <textarea class="form-control" name="reply_text" rows="3" required></textarea>
                       </div>
@@ -343,6 +367,7 @@
                       </div>
                     </form>
                   </div>
+
 
                   <!-- Replies Section -->
                   <div class="replies ms-4 ps-3 border-start">
@@ -452,50 +477,51 @@
             }
         }
 
-        // Reply form submission
-        if (e.target.closest('.reply-form-container form')) {
-          const form = e.target.closest('form');
+        // Cancel button handling
+        if (e.target.classList.contains('cancel-reply-btn')) {
+            e.preventDefault();
+            const commentId = e.target.getAttribute('data-comment-id');
+            const form = document.getElementById('reply-form-' + commentId);
+            const replyBtn = form.closest('.comment-container').querySelector('.reply-btn');
 
-          // added
-          const commentId = form.querySelector('[name="parent_comment_id"]').value;
-
-          // Check if user is authenticated
-          {% if not current_user.is_authenticated %}
-              window.location.href = "{{ url_for('login') }}";
-              return;
-          {% endif %}
-          // end added
-
-          if (e.target.type === 'submit') {
-              e.preventDefault();
-              const formData = new FormData(form);
-
-              // Add any additional data needed
-              const parentCommentId = form.querySelector('[name="parent_comment_id"]').value;
-              formData.append('parent_comment_id', parentCommentId);
-
-              fetch(form.action, {
-                  method: 'POST',
-                  body: formData,
-                  headers: {
-                      'X-CSRFToken': '{{ csrf_token() }}'
-                  }
-              })
-              .then(response => response.json())
-              .then(data => {
-                  if (data.success) {
-                      window.location.reload();
-                  } else {
-                      alert(data.message || 'Error posting reply');
-                  }
-              })
-              .catch(error => {
-                  console.error('Error:', error);
-                  alert('Failed to post reply');
-              });
-          }
+            form.style.display = 'none';
+            if (replyBtn) {
+                replyBtn.textContent = '{{ _("Reply") }}';
+            }
         }
 
+        // Reply form submission
+        if (e.target.type === 'submit' && e.target.closest('.reply-form-container form')) {
+            e.preventDefault();
+            const form = e.target.closest('form');
+            const formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (data && data.success) {
+                    window.location.reload();
+                } else if (data) {
+                    alert(data.message || 'Error posting reply');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to post reply');
+            });
+        }
 
     });
 

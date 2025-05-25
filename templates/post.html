@@ -473,35 +473,42 @@
 
   document.addEventListener('DOMContentLoaded', function() {
       // 1. REPLY FUNCTIONALITY
+
+    / Improved event delegation for reply functionality
     document.addEventListener('click', function(e) {
-        // Reply button handling
-        if (e.target.classList.contains('reply-btn')) {
+        // Handle reply button click
+        if (e.target.classList.contains('reply-btn') ||
+            e.target.closest('.reply-btn')) {
             e.preventDefault();
-            const commentId = e.target.getAttribute('data-comment-id');
-            const form = document.getElementById('reply-form-' + commentId);
+            const replyBtn = e.target.classList.contains('reply-btn') ?
+                e.target : e.target.closest('.reply-btn');
+            const commentId = replyBtn.getAttribute('data-comment-id');
+            const form = document.getElementById(reply-form-${commentId});
             const isOpen = form.style.display === 'block';
 
-            // Close all other forms
+            // Toggle form visibility
             document.querySelectorAll('.reply-form-container').forEach(f => {
                 f.style.display = 'none';
                 const btn = f.closest('.comment-container').querySelector('.reply-btn');
                 if (btn) btn.textContent = '{{ _("Reply") }}';
             });
 
-            // Toggle current form
             form.style.display = isOpen ? 'none' : 'block';
-            e.target.textContent = isOpen ? '{{ _("Reply") }}' : '{{ _("Cancel") }}';
+            replyBtn.textContent = isOpen ? '{{ _("Reply") }}' : '{{ _("Cancel") }}';
 
             if (!isOpen) {
                 form.querySelector('textarea').focus();
             }
         }
 
-        // Cancel button handling
-        if (e.target.classList.contains('cancel-reply-btn')) {
+        // Handle cancel button
+        if (e.target.classList.contains('cancel-reply-btn') ||
+            e.target.closest('.cancel-reply-btn')) {
             e.preventDefault();
-            const commentId = e.target.getAttribute('data-comment-id');
-            const form = document.getElementById('reply-form-' + commentId);
+            const cancelBtn = e.target.classList.contains('cancel-reply-btn') ?
+                e.target : e.target.closest('.cancel-reply-btn');
+            const commentId = cancelBtn.getAttribute('data-comment-id');
+            const form = document.getElementById(reply-form-${commentId});
             const replyBtn = form.closest('.comment-container').querySelector('.reply-btn');
 
             form.style.display = 'none';
@@ -509,85 +516,103 @@
                 replyBtn.textContent = '{{ _("Reply") }}';
             }
         }
+    });
 
-        if (e.target.type === 'submit' && e.target.closest('.reply-form-container form')) {
+    // Separate form submission handler
+    document.addEventListener('submit', function(e) {
+        if (e.target.closest('.reply-form-container form')) {
             e.preventDefault();
             const form = e.target.closest('form');
             const formData = new FormData(form);
             const commentContainer = form.closest('.comment-container');
             const repliesSection = commentContainer.querySelector('.replies');
 
+            // Add loading state
+            const submitBtn = form.querySelector('[type="submit"]');
+            const originalBtnText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = '{{ _("Posting...") }}';
+
             fetch(form.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
-                    'X-CSRFToken': '{{ csrf_token() }}'
+                    'X-CSRFToken': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
                 }
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(data => {
-              if (data.success) {
-                  // Hide the form
-                  form.style.display = 'none';
+                if (data.success) {
+                    // Hide the form
+                    form.style.display = 'none';
 
-                  // Reset the reply button
-                  const replyBtn = commentContainer.querySelector('.reply-btn');
-                  if (replyBtn) replyBtn.textContent = '{{ _("Reply") }}';
+                    // Reset the reply button
+                    const replyBtn = commentContainer.querySelector('.reply-btn');
+                    if (replyBtn) replyBtn.textContent = '{{ _("Reply") }}';
 
-                  // Create the new reply element
-                  const replyHtml = `
-                      <div class="reply mb-3" id="comment-${data.reply.id}">
-                          <div class="reply-header d-flex align-items-center mb-1">
-                              <img src="${data.reply.author_image}"
-                                   class="rounded-circle me-2" width="35" height="35">
-                              <div>
-                                  <strong>${data.reply.author_name}</strong>
-                                  <small class="text-muted ms-2">${data.reply.created_at}</small>
-                              </div>
-                          </div>
-                          <div class="reply-body">
-                              ${data.reply.text}
-                          </div>
-                          ${data.reply.is_author ? `
-                          <div class="reply-actions mt-2">
-                              <button class="btn btn-sm btn-outline-primary edit-comment-btn"
-                                      data-comment-id="${data.reply.id}"
-                                      data-comment-text="${data.reply.text.replace(/"/g, '&quot;')}">
-                                  {{ _("Edit") }}
-                              </button>
-                          </div>` : ''}
-                      </div>
-                  `;
+                    // Create the new reply element
+                    const replyHtml = `
+                        <div class="reply mb-3 highlight" id="comment-${data.reply.id}">
+                            <div class="reply-header d-flex align-items-center mb-1">
+                                <img src="${data.reply.author_image}"
+                                     class="rounded-circle me-2" width="35" height="35">
+                                <div>
+                                    <strong>${data.reply.author_name}</strong>
+                                    <small class="text-muted ms-2">${data.reply.created_at}</small>
+                                </div>
+                            </div>
+                            <div class="reply-body">
+                                ${data.reply.text}
+                            </div>
+                            ${data.reply.is_author ? `
+                            <div class="reply-actions mt-2">
+                                <button class="btn btn-sm btn-outline-primary edit-comment-btn"
+                                        data-comment-id="${data.reply.id}"
+                                        data-comment-text="${data.reply.text.replace(/"/g, '&quot;')}">
+                                    {{ _("Edit") }}
+                                </button>
+                            </div>` : ''}
+                        </div>
+                    `;
 
-                  // Add the new reply to the replies section
-                  if (!repliesSection) {
-                      // Create replies section if it doesn't exist
-                      const newRepliesSection = document.createElement('div');
-                      newRepliesSection.className = 'replies ms-4 ps-3 border-start';
-                      newRepliesSection.innerHTML = replyHtml;
-                      commentContainer.appendChild(newRepliesSection);
-                  } else {
-                      // Append to existing replies
-                      repliesSection.insertAdjacentHTML('beforeend', replyHtml);
-                  }
-
-                  // Scroll to the new reply
-                  const newReply = document.getElementById(comment-${data.reply.id});
-                  newReply.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-                  // Highlight the new reply
-                  newReply.classList.add('highlight');
-                  setTimeout(() => newReply.classList.remove('highlight'), 2000);
+                    // Add the new reply
+                    if (!repliesSection) {
+                        const newRepliesSection = document.createElement('div');
+                        newRepliesSection.className = 'replies ms-4 ps-3 border-start';
+                        newRepliesSection.innerHTML = replyHtml;
+                        commentContainer.appendChild(newRepliesSection);
                     } else {
-                        alert(data.message || 'Error posting reply');
+                        repliesSection.insertAdjacentHTML('beforeend', replyHtml);
                     }
-                  })
-                  .catch(error => {
-                      console.error('Error:', error);
-                      alert('Failed to post reply');
-                  });
-        }
 
+                    // Scroll to highlight new reply
+                    const newReply = document.getElementById(comment-${data.reply.id});
+                    newReply.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    setTimeout(() => {
+                        newReply.classList.remove('highlight');
+                    }, 2000);
+
+                    // Clear the form
+                    form.querySelector('textarea').value = '';
+                } else {
+                    alert(data.message || 'Error posting reply');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to post reply. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
+            });
+        }
     });
 
     // 2. EDIT FUNCTIONALITY

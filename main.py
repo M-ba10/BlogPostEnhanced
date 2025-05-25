@@ -1047,39 +1047,69 @@ def edit_comment(comment_id):
 @app.route('/post/<int:post_id>/reply', methods=['POST'])
 @login_required
 def reply_comment(post_id):
-    if not current_user.is_authenticated:
-        return jsonify({'success': False, 'message': 'You need to login to reply.'}), 401
+    try:
+        # Validate input
+        if not request.form.get('reply_text') or not request.form.get('parent_comment_id'):
+            return jsonify({
+                'success': False,
+                'message': 'Reply text and parent comment ID are required'
+            }), 400
 
-    parent_comment_id = request.form.get('parent_comment_id')
-    parent_comment = db.get_or_404(Comment, parent_comment_id)
-    post = db.get_or_404(BlogPost, post_id)
+        # Get parent comment and post with error handling
+        try:
+            parent_comment = db.session.get(Comment, request.form['parent_comment_id'])
+            post = db.session.get(BlogPost, post_id)
 
-    new_reply = Comment(
-        text=request.form.get('reply_text'),
-        comment_author=current_user,
-        parent_post=post,
-        parent_id=parent_comment_id
-    )
-    db.session.add(new_reply)
-    db.session.commit()
+            if not parent_comment or not post:
+                return jsonify({
+                    'success': False,
+                    'message': 'Comment or post not found'
+                }), 404
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'message': 'Error retrieving comment or post'
+            }), 500
 
-    send_reply_notification(new_reply, parent_comment)
+        # Create the reply
+        new_reply = Comment(
+            text=request.form['reply_text'],
+            comment_author=current_user,
+            parent_post=post,
+            parent_id=parent_comment.id
+        )
 
-    # Return the new reply data as JSON
-    return jsonify({
-        'success': True,
-        'reply': {
-            'id': new_reply.id,
-            'text': new_reply.text,
-            'author_name': current_user.name,
-            'author_image': url_for('static',
-                                    filename='profile_pics/' + current_user.profile_image) if current_user.profile_image else get_gravatar_url(
-                current_user.email, 35),
-            'created_at': new_reply.created_at.strftime('%B %d, %Y at %H:%M'),
-            'is_author': True  # Since they just posted it
-        }
-    })
+        db.session.add(new_reply)
+        db.session.commit()
 
+        # Send notification (in background if possible)
+        try:
+            send_reply_notification(new_reply, parent_comment)
+        except Exception as e:
+            app.logger.error(f"Failed to send notification: {str(e)}")
+
+        # Return success response
+        return jsonify({
+            'success': True,
+            'reply': {
+                'id': new_reply.id,
+                'text': new_reply.text,
+                'author_name': current_user.name,
+                'author_image': (url_for('static', filename='profile_pics/' + current_user.profile_image)
+                                 if current_user.profile_image
+                                 else get_gravatar_url(current_user.email, 35)),
+                'created_at': new_reply.created_at.strftime('%B %d, %Y at %H:%M'),
+                'is_author': True
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error creating reply: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': 'An unexpected error occurred'
+        }), 500
 
 @app.route('/comment/<int:comment_id>/delete', methods=['POST'])
 @login_required

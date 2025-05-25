@@ -193,6 +193,26 @@
         min-height: 100px;
         margin-bottom: 10px;
     }
+
+    /* Add to your existing styles */
+    .reply {
+        transition: all 0.3s ease;
+    }
+
+    .highlight {
+        animation: highlight 2s ease;
+        background-color: rgba(255, 243, 205, 0.5);
+    }
+
+    @keyframes highlight {
+        0% { background-color: rgba(255, 243, 205, 0.8); }
+        100% { background-color: transparent; }
+    }
+
+    .replies {
+        transition: max-height 0.3s ease;
+        overflow: hidden;
+    }
   </style>
 </header>
 
@@ -490,11 +510,12 @@
             }
         }
 
-        // Reply form submission
         if (e.target.type === 'submit' && e.target.closest('.reply-form-container form')) {
             e.preventDefault();
             const form = e.target.closest('form');
             const formData = new FormData(form);
+            const commentContainer = form.closest('.comment-container');
+            const repliesSection = commentContainer.querySelector('.replies');
 
             fetch(form.action, {
                 method: 'POST',
@@ -503,24 +524,68 @@
                     'X-CSRFToken': '{{ csrf_token() }}'
                 }
             })
-            .then(response => {
-                if (response.redirected) {
-                    window.location.href = response.url;
-                } else {
-                    return response.json();
-                }
-            })
+            .then(response => response.json())
             .then(data => {
-                if (data && data.success) {
-                    window.location.reload();
-                } else if (data) {
-                    alert(data.message || 'Error posting reply');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Failed to post reply');
-            });
+              if (data.success) {
+                  // Hide the form
+                  form.style.display = 'none';
+
+                  // Reset the reply button
+                  const replyBtn = commentContainer.querySelector('.reply-btn');
+                  if (replyBtn) replyBtn.textContent = '{{ _("Reply") }}';
+
+                  // Create the new reply element
+                  const replyHtml = `
+                      <div class="reply mb-3" id="comment-${data.reply.id}">
+                          <div class="reply-header d-flex align-items-center mb-1">
+                              <img src="${data.reply.author_image}"
+                                   class="rounded-circle me-2" width="35" height="35">
+                              <div>
+                                  <strong>${data.reply.author_name}</strong>
+                                  <small class="text-muted ms-2">${data.reply.created_at}</small>
+                              </div>
+                          </div>
+                          <div class="reply-body">
+                              ${data.reply.text}
+                          </div>
+                          ${data.reply.is_author ? `
+                          <div class="reply-actions mt-2">
+                              <button class="btn btn-sm btn-outline-primary edit-comment-btn"
+                                      data-comment-id="${data.reply.id}"
+                                      data-comment-text="${data.reply.text.replace(/"/g, '&quot;')}">
+                                  {{ _("Edit") }}
+                              </button>
+                          </div>` : ''}
+                      </div>
+                  `;
+
+                  // Add the new reply to the replies section
+                  if (!repliesSection) {
+                      // Create replies section if it doesn't exist
+                      const newRepliesSection = document.createElement('div');
+                      newRepliesSection.className = 'replies ms-4 ps-3 border-start';
+                      newRepliesSection.innerHTML = replyHtml;
+                      commentContainer.appendChild(newRepliesSection);
+                  } else {
+                      // Append to existing replies
+                      repliesSection.insertAdjacentHTML('beforeend', replyHtml);
+                  }
+
+                  // Scroll to the new reply
+                  const newReply = document.getElementById(comment-${data.reply.id});
+                  newReply.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                  // Highlight the new reply
+                  newReply.classList.add('highlight');
+                  setTimeout(() => newReply.classList.remove('highlight'), 2000);
+                    } else {
+                        alert(data.message || 'Error posting reply');
+                    }
+                  })
+                  .catch(error => {
+                      console.error('Error:', error);
+                      alert('Failed to post reply');
+                  });
         }
 
     });

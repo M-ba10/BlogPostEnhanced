@@ -68,9 +68,9 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 300,    # Recycle connections every 5 minutes
 }
 
-def init_db():
+'''def init_db():
     with app.app_context():
-        db.create_all()
+        db.create_all()'''
 ######################################################### end#######################################
 
 
@@ -1175,6 +1175,8 @@ def contact():
 
 if __name__ == '__main__':
 
-    init_db()
+    #init_db()
+    with app.app_context():
+        db.create_all()
 
     app.run(debug=False, port=5001)

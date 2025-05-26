@@ -29,6 +29,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 
+# python -m flask --app  main.py db migrate -m " Setting postgre"
 
 
 # Load environment variables

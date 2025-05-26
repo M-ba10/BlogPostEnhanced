@@ -38,6 +38,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_KEY')
 
 # Database Configuration - SQLite version
+'''
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance/posts.db')
 
@@ -46,11 +47,31 @@ os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+'''
 
-# Initialize SQLAlchemy
+#################################################################db##########################################
+# Database Configuration
+if os.environ.get('RENDER'):  # Production on Render
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace(
+        'postgres://', 'postgresql://'  # Required for SQLAlchemy 1.4+
+    )
+else:  # Local development
+    # SQLite configuration
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    db_path = os.path.join(basedir, 'instance', 'site.db')
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,  # Optional but recommended for PostgreSQL
+    'pool_recycle': 300,    # Recycle connections every 5 minutes
+}
 
-
+def init_db():
+    with app.app_context():
+        db.create_all()
+######################################################### end#######################################
 
 
 # Initialize extensions
@@ -1153,17 +1174,7 @@ def contact():
 # ... (include all other routes from your original code)
 
 if __name__ == '__main__':
-    '''with app.app_context():
-        try:
-            os.makedirs(os.path.join(basedir, 'instance'), exist_ok=True)
 
-            db.create_all()
-            print(f"✅ Database created at {app.config['SQLALCHEMY_DATABASE_URI']}")
-        except Exception as e:
-            print(f"❌ Database operation failed: {str(e)}")
-            print(f"Error type: {type(e).__name__}")
-            import traceback
-
-            traceback.print_exc() '''
+    init_db()
 
     app.run(debug=False, port=5001)

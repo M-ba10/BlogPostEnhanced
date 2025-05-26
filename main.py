@@ -38,7 +38,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_KEY')
 
 # Database Configuration - SQLite version
-'''
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance/posts.db')
 
@@ -47,10 +47,10 @@ os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-'''
+
 
 #################################################################db##########################################
-# Database Configuration
+''''# Database Configuration
 if os.environ.get('RENDER'):  # Production on Render
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace(
         'postgres://', 'postgresql://'  # Required for SQLAlchemy 1.4+
@@ -66,7 +66,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,  # Optional but recommended for PostgreSQL
     'pool_recycle': 300,    # Recycle connections every 5 minutes
-}
+}'''
 
 '''def init_db():
     with app.app_context():
@@ -1176,7 +1176,7 @@ def contact():
 if __name__ == '__main__':
 
     #init_db()
-    with app.app_context():
-        db.create_all()
+    '''with app.app_context():
+        db.create_all()'''
 
     app.run(debug=False, port=5001)

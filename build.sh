@@ -1,18 +1,12 @@
 #!/bin/bash
-# Exit immediately on errors
-set -o errexit
+set -o errexit  # Exit on any error
 
 # 1. Install dependencies
 pip install -r requirements.txt
+pip install gunicorn
 
-# 2. Only run database migrations in production (Render)
-if [ "$RENDER" ]; then
-  echo "-> Running database migrations in production"
+# 2. Apply database migrations (production only)
+if [ -n "$RENDER" ]; then
+  echo "-> Running database migrations"
   flask db upgrade
-else
-  echo "-> Skipping migrations (not in production)"
 fi
-
-# 3. Collect static files (if using Flask-Assets or similar)
-# echo "-> Collecting static files"
-# flask assets build

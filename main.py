@@ -38,7 +38,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_KEY')
 
 # Database Configuration - SQLite version
-
+'''
 basedir = os.path.abspath(os.path.dirname(__file__))
 db_path = os.path.join(basedir, 'instance/posts.db')
 
@@ -46,11 +46,11 @@ db_path = os.path.join(basedir, 'instance/posts.db')
 os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False '''
 
 
 #################################################################db##########################################
-''''# Database Configuration
+# Database Configuration
 if os.environ.get('RENDER'):  # Production on Render
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL').replace(
         'postgres://', 'postgresql://'  # Required for SQLAlchemy 1.4+
@@ -66,11 +66,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,  # Optional but recommended for PostgreSQL
     'pool_recycle': 300,    # Recycle connections every 5 minutes
-}'''
+}
 
-'''def init_db():
-    with app.app_context():
-        db.create_all()'''
+
 ######################################################### end#######################################
 
 
@@ -1173,10 +1171,30 @@ def contact():
 
 # ... (include all other routes from your original code)
 
+
+
+def initialize_database():
+    """Safety net for database creation"""
+    try:
+        with app.app_context():
+            # This won't overwrite existing tables
+            db.create_all()
+            print("✅ Database tables verified")
+    except Exception as e:
+        print(f"❌ Database initialization error: {str(e)}")
+        raise
+
+# CLI command for explicit initialization
+@app.cli.command("init-db")
+def init_db_command():
+    """Initialize the database"""
+    initialize_database()
+    print("Initialized the database.")
+
 if __name__ == '__main__':
 
-    #init_db()
-    '''with app.app_context():
-        db.create_all()'''
+    with app.app_context():
+        #db.create_all()
+        initialize_database()
 
     app.run(debug=False, port=5001)
